@@ -1,25 +1,59 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    // This line of code will only be executed once when your extension is activated
-    console.log('Congratulations, your extension "vscost" is now active!');
+class FunctionHintProvider implements vscode.CodeLensProvider {
+    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+        const codeLenses: vscode.CodeLens[] = [];
 
-    // The command has been defined in the package.json file
-    // Now provide the implementation of the command with registerCommand
-    // The commandId parameter must match the command field in package.json
-    const disposable = vscode.commands.registerCommand("vscost.helloWorld", () => {
-        // The code you place here will be executed every time your command is executed
-        // Display a message box to the user
-        vscode.window.showInformationMessage("Hello World from VSCost!");
-    });
+        // Get all symbols in the document
+        const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+            "vscode.executeDocumentSymbolProvider",
+            document.uri,
+        );
 
-    context.subscriptions.push(disposable);
+        if (!symbols) {
+            return codeLenses;
+        }
+
+        // Recursively find all functions
+        const findFunctions = (symbols: vscode.DocumentSymbol[]) => {
+            for (const symbol of symbols) {
+                if (symbol.kind === vscode.SymbolKind.Function || symbol.kind === vscode.SymbolKind.Method) {
+                    const range = new vscode.Range(symbol.range.start.line, 0, symbol.range.start.line, 0);
+                    codeLenses.push(
+                        new vscode.CodeLens(range, {
+                            title: `💡 ${symbol.name}`,
+                            command: "",
+                        }),
+                    );
+                }
+                if (symbol.children) {
+                    findFunctions(symbol.children);
+                }
+            }
+        };
+
+        findFunctions(symbols);
+        return codeLenses;
+    }
 }
 
-// This method is called when your extension is deactivated
+export function activate(context: vscode.ExtensionContext) {
+    console.log("VSCost extension activating...");
+
+    const provider = new FunctionHintProvider();
+
+    const codeLensDisposable = vscode.languages.registerCodeLensProvider(
+        [
+            { language: "typescript", scheme: "file" },
+            { language: "typescriptreact", scheme: "file" },
+            { language: "javascript", scheme: "file" },
+            { language: "javascriptreact", scheme: "file" },
+        ],
+        provider,
+    );
+
+    context.subscriptions.push(codeLensDisposable);
+    console.log("VSCost CodeLens provider registered");
+}
+
 export function deactivate() {}
