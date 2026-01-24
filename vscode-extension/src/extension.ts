@@ -66,19 +66,26 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
         // Add cost
         if (llmCall.cost_per_1M_tokens !== null) {
           info.push(`$${llmCall.cost_per_1M_tokens.toFixed(2)}/1M tokens`);
+          if(llmCall.cost_per_1M_tokens > 1000){
+            info.push(" 💰 Expensive");
+          } else if (llmCall.cost_per_1M_tokens > 100){
+            info.push(" 🤑 Costly");
+          } else {
+            info.push(" ✅ Affordable");
+          }
         }
 
         if (llmCall.is_deprecated) {
-          info.push("👴Deprecated");
+          info.push(" 👴 Deprecated");
         }
         if (llmCall.loop_info.is_in_loop) {
-          info.push(`🔁 In ${llmCall.loop_info.loop_type} loop`);
+          info.push(` 🔁 In ${llmCall.loop_info.loop_type} loop`);
         }
         if (llmCall.is_cacheable) {
-          info.push("⚠️Cacheable");
+          info.push(" ⚠️ Cacheable");
         }
         if (llmCall.supports_thinking) {
-          info.push("💸Thinking");
+          info.push(" 💸 Thinking");
         }
 
         const title = `${llmCall.model} | ${info.join(" | ")}`;
