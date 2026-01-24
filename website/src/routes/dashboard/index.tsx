@@ -1,15 +1,17 @@
-import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+//import * as React from "react";
+//import { Button } from "@/components/ui/button";
+//import { Alert } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
+
 const budgetValue = 65; //TODO remplacer exemple chatgpt 
 const niveauWarning = 90;  // % pour afficher le budget en jaune
+
 
 const budgetLabel =
   budgetValue < niveauWarning ? "Respecte le budget"
@@ -17,11 +19,11 @@ const budgetLabel =
   : "Budget dépassé!";
 
 const commitData = [
-    { date: "2026-01-01", userA: 50, userB: 30 },
-    { date: "2026-01-02", userA: 80, userB: 40 },
-    { date: "2026-01-03", userA: 60, userB: 50 },
-    { date: "2026-01-04", userA: 90, userB: 70 },
-]; // data exemple chatgpt
+    { date: "2026-01-01", repo: 50, repo2: 30 },
+    { date: "2026-01-02", repo: 80, repo2: 40 },
+    { date: "2026-01-03", repo: 60, repo2: 50 },
+    { date: "2026-01-04", repo: 90, repo2: 70 },
+]; //TODO remplacer data exemple chatgpt en connectant avec emil
 
 function Dashboard() {
     return (
@@ -35,10 +37,10 @@ function Dashboard() {
                     <p
                         className={`text-sm ${
                             budgetLabel === "Respecte le budget"
-                            ? "text-green-600"
+                            ? "text-green-700"
                             : budgetLabel === "Attention"
-                            ? "text-yellow-600"
-                            : "text-red-600"
+                            ? "text-yellow-700"
+                            : "text-red-700"
                         }`}
                         >
                         {budgetValue}% du budget est utilisé · {budgetLabel}
@@ -58,8 +60,8 @@ function Dashboard() {
                                 <XAxis dataKey="date" />
                                 <YAxis />
                                 <Tooltip />
-                                <Line type="monotone" dataKey="userA" stroke="#3b82f6" name="User A $/commit" />
-                                <Line type="monotone" dataKey="userB" stroke="#10b981" name="User B $/commit" />
+                                <Line type="monotone" dataKey="repo" stroke="#3b82f6" name="Repo $/commit" />
+                                <Line type="monotone" dataKey="repo2" stroke="#10b981" name="Repo2 $/commit" />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

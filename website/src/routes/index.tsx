@@ -5,9 +5,8 @@ export const Route = createFileRoute("/")({ component: Page });
 
 function Page() {
     return (
-        <div>
-            <div>VS Code</div>
-
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+            <div>VSCost</div>
             <Button render={<Link to="/dashboard" />} nativeButton={false}>
                 Dashboard
             </Button>
