@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { ForgotPasswordIcon, LoginSquare01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated } from "real-convex/react";
+import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 

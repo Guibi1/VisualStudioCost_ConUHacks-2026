@@ -8,7 +8,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     providers: [
         GitHub({
             profile(profile) {
-                console.log(profile);
                 return {
                     id: profile.id.toString(),
                     username: profile.login,
@@ -23,7 +22,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         async createOrUpdateUser(ctx: MutationCtx, args) {
             if (args.existingUserId) {
                 await ctx.db.patch("users", args.existingUserId, {
-                    username: args.profile.login as string,
+                    username: args.profile.username as string,
                     name: (args.profile.name ?? args.profile.login) as string,
                     email: args.profile.email,
                     image: args.profile.image as string,

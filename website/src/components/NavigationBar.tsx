@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { LoginSquare01Icon, LogoutSquare01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
-import { Authenticated, Unauthenticated, useQuery } from "real-convex/react";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { api } from "vscost-convex/_generated/api";
 import { Button } from "@/components/ui/button";
 
