@@ -26,7 +26,7 @@ export default function NavigationBar() {
                 </Authenticated>
 
                 <Unauthenticated>
-                    <Button onClick={() => signIn("discord")}>
+                    <Button onClick={() => signIn("github")}>
                         Se connecter
                         <HugeiconsIcon icon={LoginSquare01Icon} />
                     </Button>

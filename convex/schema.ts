@@ -5,18 +5,18 @@ import { v } from "convex/values";
 export default defineSchema({
     ...authTables,
     users: defineTable({
-        name: v.string(),
-        image: v.optional(v.string()),
-        email: v.string(),
-        discordId: v.string(),
-        discordUsername: v.string(),
-
-        team: v.optional(v.id("teams")),
+      username: v.string(),
+      name: v.string(),
+      image: v.optional(v.string()),
+      email: v.string(),
     })
-        .index("by_email", ["email"])
-        .index("by_team", ["team"]),
-    teams: defineTable({
+      .index("by_email", ["email"]),
+    repositories: defineTable({
         name: v.string(),
-        code: v.string(),
-    }).index("by_code", ["code"]),
+        latest: v.string(),
+    }),
+    commits: defineTable({
+        repo: v.string(),
+        cost: v.string(),
+    }).index("by_repo", ["repo"]),
 });

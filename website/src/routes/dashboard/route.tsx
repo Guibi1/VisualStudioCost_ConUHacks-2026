@@ -28,7 +28,7 @@ function RouteComponent() {
                         <div className="flex flex-col gap-2">
                             <Button
                                 variant="outline"
-                                onClick={() => signIn("discord", { redirectTo: window.location.pathname })}
+                                onClick={() => signIn("github", { redirectTo: window.location.pathname })}
                             >
                                 Se connecter
                                 <HugeiconsIcon icon={LoginSquare01Icon} />

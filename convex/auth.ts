@@ -1,4 +1,4 @@
-import Discord from "@auth/core/providers/discord";
+import GitHub from "@auth/core/providers/github";
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import { api } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -6,20 +6,15 @@ import { type MutationCtx, type QueryCtx, query } from "./_generated/server";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     providers: [
-        Discord({
-            profile(profile, _tokens) {
-                if (profile.avatar !== null) {
-                    const format = profile.avatar.startsWith("a_") ? "gif" : "png";
-                    profile.image_url = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}`;
-                }
-
+        GitHub({
+            profile(profile) {
+                console.log(profile);
                 return {
-                    id: profile.id,
-                    name: profile.global_name,
+                    id: profile.id.toString(),
+                    username: profile.login,
+                    name: profile.name ?? profile.login,
                     email: profile.email,
-                    image: profile.image_url,
-                    discordId: profile.id,
-                    discordUsername: profile.username,
+                    image: profile.avatar_url ?? profile.gravatar_id ?? undefined,
                 };
             },
         }),
@@ -28,16 +23,16 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         async createOrUpdateUser(ctx: MutationCtx, args) {
             if (args.existingUserId) {
                 await ctx.db.patch("users", args.existingUserId, {
-                    email: args.profile.email as string,
+                    username: args.profile.login as string,
+                    name: (args.profile.name ?? args.profile.login) as string,
+                    email: args.profile.email,
                     image: args.profile.image as string,
-                    discordId: args.profile.discordId as string,
-                    discordUsername: args.profile.discordUsername as string,
                 });
                 return args.existingUserId;
             }
 
-            if (args.type !== "oauth" || args.provider.type !== "oauth" || args.provider.id !== "discord") {
-                throw new Error("Can only login using discord.");
+            if (args.type !== "oauth" || args.provider.type !== "oauth" || args.provider.id !== "github") {
+                throw new Error("Can only login using github.");
             }
 
             const existingUser = await ctx.db
