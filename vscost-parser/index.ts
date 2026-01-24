@@ -1,7 +1,12 @@
 import * as ts from "typescript";
 import * as fs from "fs";
 import * as path from "path";
-
+import type {
+  LLMCall,
+  FunctionInfo,
+  FileAnalysisResult,
+  AnalysisResult,
+} from "./types";
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
 function get_model_cost(model_name: string): number | null {
@@ -22,12 +27,6 @@ function isTargetCallee(callee: string): boolean {
     callee === "anthropic.chat.completions.create" ||
     callee === "openRouter.chat.send"
   );
-}
-
-interface LLMCall {
-  position: { line: number; column: number };
-  model: string;
-  cost_per_1M_tokens: number | null;
 }
 
 function parse_call_expression(
@@ -53,9 +52,9 @@ function parse_call_expression(
             .replace(/['"`]/g, "");
           const cost = get_model_cost(modelValue);
           return {
+            callee: callee,
             position: position,
             model: modelValue,
-            cost_per_1M_tokens: cost,
           };
         }
       }
@@ -74,23 +73,6 @@ function findAllCallExpressions(node: ts.Node): ts.CallExpression[] {
   }
   walk(node);
   return calls;
-}
-
-interface FunctionInfo {
-  name: string;
-  position: { line: number; column: number };
-  llm_calls: LLMCall[];
-}
-
-interface FileAnalysisResult {
-  file_path: string;
-  functions: FunctionInfo[];
-  total_cost_per_1M_tokens: number;
-}
-
-interface AnalysisResult {
-  files: FileAnalysisResult[];
-  total_cost_per_1M_tokens: number;
 }
 
 function parse_file(file_path: string): FileAnalysisResult {
@@ -113,9 +95,6 @@ function parse_file(file_path: string): FileAnalysisResult {
         const llmCall = parse_call_expression(call, ast);
         if (llmCall) {
           llmCalls.push(llmCall);
-          if (llmCall.cost_per_1M_tokens !== null) {
-            totalCost += llmCall.cost_per_1M_tokens;
-          }
         }
       }
 
@@ -131,7 +110,6 @@ function parse_file(file_path: string): FileAnalysisResult {
   return {
     file_path,
     functions,
-    total_cost_per_1M_tokens: totalCost,
   };
 }
 
@@ -180,7 +158,6 @@ function analyze_code(dir_path: string): AnalysisResult {
 
   return {
     files: fileResults,
-    total_cost_per_1M_tokens: totalCost,
   };
 }
 
