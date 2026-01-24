@@ -8,7 +8,13 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
-const budgetValue = 65; // exemple chatgpt 65% du budget utilisé
+const budgetValue = 65; //TODO remplacer exemple chatgpt 
+const niveauWarning = 90;  // % pour afficher le budget en jaune
+
+const budgetLabel =
+  budgetValue < niveauWarning ? "Respecte le budget"
+  : budgetValue < 100 ? "Attention"
+  : "Budget dépassé!";
 
 const commitData = [
     { date: "2026-01-01", userA: 50, userB: 30 },
@@ -22,17 +28,27 @@ function Dashboard() {
         <div className="space-y-6 p-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Budget Usage</CardTitle>
+                    <CardTitle>Utilisation budget</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                     <Progress value={budgetValue} />
-                    <p className="text-sm text-muted-foreground">{budgetValue}% of your budget used</p>
+                    <p
+                        className={`text-sm ${
+                            budgetLabel === "Respecte le budget"
+                            ? "text-green-600"
+                            : budgetLabel === "Attention"
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                        }`}
+                        >
+                        {budgetValue}% du budget est utilisé · {budgetLabel}
+                        </p>
                 </CardContent>
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Revenue per User by Commits</CardTitle>
+                    <CardTitle>Coût par utilisateur par commit</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="h-64">
