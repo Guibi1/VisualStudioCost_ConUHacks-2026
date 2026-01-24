@@ -1,0 +1,28 @@
+{
+    "name": "vscost",
+    "private": true,
+    "workspaces": [
+        "vscode-extension",
+        "convex",
+        "github-app",
+        "website"
+    ],
+    "scripts": {
+        "dev": "concurrently 'cd website && bunx vite dev' 'bunx --bun convex dev --typecheck disable'",
+        "build": "cd website && bunx --bun vite build",
+        "preview": "cd website && bunx vite preview",
+        "deploy": "cd website && bun run build && bunx wrangler deploy",
+        "cf-typegen": "cd website && bunx wrangler types",
+        "format": "bunx --bun biome format",
+        "lint": "bunx --bun biome lint",
+        "check": "bunx --bun biome check"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.3.12",
+        "concurrently": "^9.2.1",
+        "convex": "^1.31.6"
+    },
+    "dependencies": {
+        "react": "^19.2.3"
+    }
+}

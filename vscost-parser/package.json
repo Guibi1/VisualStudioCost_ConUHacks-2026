@@ -1,0 +1,11 @@
+{
+    "name": "vscost-parser",
+    "module": "index.ts",
+    "type": "module",
+    "dependencies": {
+        "typescript": "^5.9.3"
+    },
+    "devDependencies": {
+        "@types/bun": "latest"
+    }
+}
