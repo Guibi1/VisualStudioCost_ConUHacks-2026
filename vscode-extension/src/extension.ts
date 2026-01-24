@@ -69,10 +69,10 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
         }
 
         if (llmCall.is_deprecated) {
-          info.push("⚠️Deprecated");
+          info.push("👴Deprecated");
         }
         if (llmCall.loop_info.is_in_loop) {
-          info.push(`In ${llmCall.loop_info.loop_type} loop`);
+          info.push(`🔁 In ${llmCall.loop_info.loop_type} loop`);
         }
         if (llmCall.is_cacheable) {
           info.push("⚠️Cacheable");
