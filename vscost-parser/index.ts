@@ -7,6 +7,7 @@ import type {
   FunctionInfo,
   FileAnalysisResult,
   AnalysisResult,
+  FunctionCallSite,
 } from "./types.js";
 
 export type {
@@ -15,6 +16,7 @@ export type {
   FunctionInfo,
   FileAnalysisResult,
   AnalysisResult,
+  FunctionCallSite,
 } from "./types.js";
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
@@ -52,6 +54,23 @@ function isTargetCallee(callee: string): boolean {
     callee === "anthropic.chat.completions.create" ||
     callee === "openRouter.chat.send"
   );
+}
+
+function getSimpleCalleeName(
+  node: ts.CallExpression,
+  sourceFile: ts.SourceFile,
+): string | null {
+  const expr = node.expression;
+
+  if (ts.isIdentifier(expr)) {
+    return expr.getText(sourceFile);
+  }
+
+  if (ts.isPropertyAccessExpression(expr)) {
+    return expr.name.getText(sourceFile);
+  }
+
+  return null;
 }
 
 const ARRAY_LOOP_METHODS = ["forEach", "map", "filter"];
@@ -250,7 +269,61 @@ function setParentNodes(node: ts.Node, parent?: ts.Node): void {
   ts.forEachChild(node, (child) => setParentNodes(child, node));
 }
 
-function parse_file(file_path: string): FileAnalysisResult {
+function areArgumentsConstant(
+  node: ts.CallExpression,
+  sourceFile: ts.SourceFile,
+): boolean {
+  if (node.arguments.length === 0) return false;
+  return node.arguments.every((arg) => isConstantExpression(arg));
+}
+
+type FunctionRecord = FunctionInfo & {
+  id: string;
+  callees: string[];
+};
+
+type ParsedFile = {
+  file_path: string;
+  functions: FunctionRecord[];
+  raw_calls: {
+    callee: string;
+    position: { line: number; column: number };
+    is_cacheable: boolean;
+  }[];
+};
+
+type TransitiveResult = {
+  uniqueCalls: LLMCall[];
+  count: number;
+};
+
+function dedupeLLMCalls(calls: LLMCall[]): LLMCall[] {
+  const seen = new Set<string>();
+  const result: LLMCall[] = [];
+
+  for (const call of calls) {
+    const key = [
+      call.callee,
+      call.model,
+      call.position.line,
+      call.position.column,
+      call.cost_per_1M_tokens ?? "null",
+    ].join("|");
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(call);
+    }
+  }
+
+  return result;
+}
+
+function mergeLLMCalls(existing: LLMCall[], incoming: LLMCall[]): LLMCall[] {
+  return dedupeLLMCalls([...existing, ...incoming]);
+}
+
+function parse_file(file_path: string): ParsedFile {
   const maybeAst = ts.createProgram([file_path], {}).getSourceFile(file_path);
   if (!maybeAst) {
     throw new Error(`Could not create AST from file: ${file_path}`);
@@ -260,35 +333,76 @@ function parse_file(file_path: string): FileAnalysisResult {
   // Set parent references for all nodes
   setParentNodes(ast);
 
-  const functions: FunctionInfo[] = [];
+  const functions: FunctionRecord[] = [];
+  const raw_calls: {
+    callee: string;
+    position: { line: number; column: number };
+    is_cacheable: boolean;
+  }[] = [];
+
+  function processFunction(node: ts.FunctionDeclaration) {
+    if (!node.name) return;
+
+    const funcName = node.name.getText(ast);
+    const funcPos = ast.getLineAndCharacterOfPosition(node.getStart(ast));
+    const position = { line: funcPos.line, column: funcPos.character };
+    const llmCalls: LLMCall[] = [];
+    const callees: string[] = [];
+
+    const callExpressions = findAllCallExpressions(node);
+    for (const call of callExpressions) {
+      const llmCall = parse_call_expression(call, ast);
+      if (llmCall) {
+        llmCalls.push(llmCall);
+        continue;
+      }
+
+      const calleeName = getSimpleCalleeName(call, ast);
+      if (calleeName) {
+        callees.push(calleeName);
+      }
+    }
+
+    functions.push({
+      id: `${file_path}:${funcName}`,
+      name: funcName,
+      position,
+      llm_calls: llmCalls,
+      callees,
+    });
+  }
 
   function visitNode(node: ts.Node) {
-    if (ts.isFunctionDeclaration(node) && node.name) {
-      const funcName = node.name.getText(ast);
-      const funcPos = ast.getLineAndCharacterOfPosition(node.getStart(ast));
-      const position = { line: funcPos.line, column: funcPos.character };
-      const llmCalls: LLMCall[] = [];
-
-      const callExpressions = findAllCallExpressions(node);
-      for (const call of callExpressions) {
-        const llmCall = parse_call_expression(call, ast);
-        if (llmCall) {
-          llmCalls.push(llmCall);
-        }
-      }
-
-      if (llmCalls.length > 0) {
-        functions.push({ name: funcName, position: position, llm_calls: llmCalls });
-      }
+    if (ts.isFunctionDeclaration(node)) {
+      processFunction(node);
     }
     ts.forEachChild(node, visitNode);
   }
 
   ts.forEachChild(ast, visitNode);
 
+  // Collect all non-LLM call expressions in the file for call-site lenses
+  const allCalls = findAllCallExpressions(ast);
+  for (const call of allCalls) {
+    const llmCall = parse_call_expression(call, ast);
+    if (llmCall) continue; // direct LLM calls already surfaced at callsite
+
+    const calleeName = getSimpleCalleeName(call, ast);
+    if (!calleeName) continue;
+
+    const pos = ast.getLineAndCharacterOfPosition(call.getStart(ast));
+    const is_cacheable = areArgumentsConstant(call, ast);
+    raw_calls.push({
+      callee: calleeName,
+      position: { line: pos.line, column: pos.character },
+      is_cacheable,
+    });
+  }
+
   return {
     file_path,
     functions,
+    raw_calls,
   };
 }
 
@@ -320,22 +434,122 @@ function get_all_files(dir_path: string): string[] {
 
 export function analyze_code(dir_path: string): AnalysisResult {
   const files = get_all_files(dir_path);
-  const fileResults: FileAnalysisResult[] = [];
-  let totalCost = 0;
+  const parsedFiles: ParsedFile[] = [];
 
   for (const file of files) {
     try {
       const result = parse_file(file);
-      if (result.functions.length > 0) {
-        fileResults.push(result);
-      }
+      parsedFiles.push(result);
     } catch (error) {
       console.error(`Error parsing ${file}:`, error);
     }
   }
 
+  const functionMap = new Map<string, FunctionRecord>();
+  const functionsByName = new Map<string, string[]>();
+
+  for (const parsed of parsedFiles) {
+    for (const fn of parsed.functions) {
+      functionMap.set(fn.id, fn);
+      if (!functionsByName.has(fn.name)) {
+        functionsByName.set(fn.name, []);
+      }
+      functionsByName.get(fn.name)!.push(fn.id);
+    }
+  }
+
+  const memoizedTransitive = new Map<string, TransitiveResult>();
+
+  function getTransitiveLLMCalls(
+    functionId: string,
+    stack: Set<string> = new Set(),
+  ): TransitiveResult {
+    if (memoizedTransitive.has(functionId)) {
+      return memoizedTransitive.get(functionId)!;
+    }
+
+    if (stack.has(functionId)) {
+      const empty: TransitiveResult = { uniqueCalls: [], count: 0 };
+      memoizedTransitive.set(functionId, empty);
+      return empty;
+    }
+
+    stack.add(functionId);
+
+    const fn = functionMap.get(functionId);
+    if (!fn) {
+      const empty: TransitiveResult = { uniqueCalls: [], count: 0 };
+      memoizedTransitive.set(functionId, empty);
+      stack.delete(functionId);
+      return empty;
+    }
+
+    let combinedCalls: LLMCall[] = [...fn.llm_calls];
+    let count = fn.llm_calls.length;
+
+    for (const calleeName of fn.callees) {
+      const candidateIds = functionsByName.get(calleeName) ?? [];
+      for (const candidateId of candidateIds) {
+        const result = getTransitiveLLMCalls(candidateId, stack);
+        combinedCalls = mergeLLMCalls(combinedCalls, result.uniqueCalls);
+        count += result.count;
+      }
+    }
+
+    const deduped = dedupeLLMCalls(combinedCalls);
+    const computed: TransitiveResult = { uniqueCalls: deduped, count };
+    memoizedTransitive.set(functionId, computed);
+    stack.delete(functionId);
+    return computed;
+  }
+
+  const fileResultMap = new Map<string, FileAnalysisResult>();
+
+  for (const parsed of parsedFiles) {
+    fileResultMap.set(parsed.file_path, {
+      file_path: parsed.file_path,
+      functions: parsed.functions.map((fn) => ({
+        name: fn.name,
+        position: fn.position,
+        llm_calls: fn.llm_calls,
+      })),
+      call_sites: [],
+    });
+  }
+
+  for (const parsed of parsedFiles) {
+    const targetFile = fileResultMap.get(parsed.file_path);
+    if (!targetFile) continue;
+
+    for (const call of parsed.raw_calls) {
+      const candidateIds = functionsByName.get(call.callee) ?? [];
+      let aggregatedCalls: LLMCall[] = [];
+      let aggregatedCount = 0;
+
+      for (const candidateId of candidateIds) {
+        const result = getTransitiveLLMCalls(candidateId);
+        aggregatedCalls = mergeLLMCalls(aggregatedCalls, result.uniqueCalls);
+        aggregatedCount += result.count;
+      }
+
+      if (aggregatedCalls.length > 0) {
+        targetFile.call_sites.push({
+          callee: call.callee,
+          position: call.position,
+          llm_calls: dedupeLLMCalls(aggregatedCalls),
+          is_cacheable: call.is_cacheable || aggregatedCalls.some((c) => c.is_cacheable),
+          total_llm_calls: aggregatedCount,
+        });
+      }
+    }
+  }
+
+  const finalFiles = Array.from(fileResultMap.values()).filter(
+    (file) => file.functions.length > 0 || file.call_sites.length > 0,
+  );
+
   return {
-    files: fileResults,
+    files: finalFiles,
   };
 }
 

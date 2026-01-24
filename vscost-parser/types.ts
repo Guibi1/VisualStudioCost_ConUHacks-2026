@@ -21,9 +21,18 @@ export interface FunctionInfo {
   llm_calls: LLMCall[];
 }
 
+export interface FunctionCallSite {
+  callee: string;
+  position: { line: number; column: number };
+  llm_calls: LLMCall[];
+  is_cacheable: boolean;
+  total_llm_calls: number;
+}
+
 export interface FileAnalysisResult {
   file_path: string;
   functions: FunctionInfo[];
+  call_sites: FunctionCallSite[];
 }
 
 export interface AnalysisResult {

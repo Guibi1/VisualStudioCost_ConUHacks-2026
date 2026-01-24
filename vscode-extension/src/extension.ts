@@ -24,13 +24,44 @@ interface FunctionInfo {
   llm_calls: LLMCall[];
 }
 
+interface FunctionCallSite {
+  callee: string;
+  position: { line: number; column: number };
+  llm_calls: LLMCall[];
+  is_cacheable: boolean;
+  total_llm_calls: number;
+}
+
 interface FileAnalysisResult {
   file_path: string;
   functions: FunctionInfo[];
+  call_sites: FunctionCallSite[];
 }
 
 interface AnalysisResult {
   files: FileAnalysisResult[];
+}
+
+function formatLLMCalls(llmCalls: LLMCall[], totalCountOverride?: number): string {
+  if (llmCalls.length === 0) {
+    return "LLM call";
+  }
+
+  const totalCalls = totalCountOverride ?? llmCalls.length;
+
+  const perModel = llmCalls.map((call) => {
+    const parts = [call.model];
+    if (call.cost_per_1M_tokens !== null) {
+      parts.push(`$${call.cost_per_1M_tokens.toFixed(2)}/1M`);
+    }
+    return parts.join(" ");
+  });
+
+  const pieces = [];
+  pieces.push(`Total ${totalCalls} LLM call${totalCalls !== 1 ? "s" : ""}`);
+  pieces.push(...perModel);
+
+  return pieces.join(" | ");
 }
 
 class FunctionHintProvider implements vscode.CodeLensProvider {
@@ -66,9 +97,7 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
         // Add cost
         if (llmCall.cost_per_1M_tokens !== null) {
           info.push(`$${llmCall.cost_per_1M_tokens.toFixed(2)}/1M tokens`);
-          if(llmCall.cost_per_1M_tokens > 1000){
-            info.push(" 💰 Expensive");
-          } else if (llmCall.cost_per_1M_tokens > 100){
+          if (llmCall.cost_per_1M_tokens > 5.0) {
             info.push(" 🤑 Costly");
           } else {
             info.push(" ✅ Affordable");
@@ -97,6 +126,28 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
           }),
         );
       }
+    }
+
+    // Create CodeLens for call sites that transitively invoke LLMs
+    for (const callSite of fileAnalysis.call_sites ?? []) {
+      if (!callSite.llm_calls || callSite.llm_calls.length === 0) continue;
+
+      const line = callSite.position.line;
+      const range = new vscode.Range(line, 0, line, 0);
+      const infoParts = [
+        `Indirect LLM via ${callSite.callee}: ${formatLLMCalls(callSite.llm_calls, callSite.total_llm_calls)}`,
+      ];
+      if (callSite.is_cacheable) {
+        infoParts.push("⚠️ Cacheable");
+      }
+      const title = infoParts.join(" | ");
+
+      codeLenses.push(
+        new vscode.CodeLens(range, {
+          title,
+          command: "",
+        }),
+      );
     }
 
     return codeLenses;

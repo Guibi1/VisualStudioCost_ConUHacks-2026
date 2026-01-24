@@ -29,16 +29,8 @@ function call_LLM(string prompt) {
 }
 
 function call_LLM2(string prompt) {
-  const response = fetch('https://api.example.com/llm', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ prompt: prompt }),
-  });
-
   const response_llm = openai.ChatCompletion.create({
-    model: "gpt-4",
+    model: "qwen-2.5-72b-instruct",
     messages: [
       { role: "system", content: "You are a helpful assistant." },
       { role: "user", content: prompt },
@@ -67,3 +59,16 @@ function call_LLM3(string prompt) {
     });
   }
 }
+
+function runExamples() {
+  call_LLM("Hello, how are you?");
+  call_LLM2("Hello, how are you?");
+}
+
+function main(){
+  call_LLM(`Hello, how are ?`);
+  runExamples();
+
+}
+
+main();
