@@ -10,9 +10,10 @@ import type {
 } from "./types";
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
+const pricesPath = path.join(import.meta.dirname, "assets/prices_llm.json");
+const prices = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
+
 function get_model_object(model_name: string): any | null {
-  // read file assets/prices_llm.json
-  const prices = require("./assets/prices_llm.json");
   for (const entry of prices.data) {
     if (entry.id.split("/").pop()! === model_name) {
       return entry;
@@ -24,6 +25,7 @@ function get_model_object(model_name: string): any | null {
 function isTargetCallee(callee: string): boolean {
   return (
     callee === "openai.ChatCompletion.create" ||
+    callee === "gemini.ChatCompletion.create" ||
     callee === "gemini.chat.completions.create" ||
     callee === "anthropic.chat.completions.create" ||
     callee === "openRouter.chat.send"
@@ -81,6 +83,60 @@ function getLoopType(node: ts.Node): string {
   return "unknown";
 }
 
+function isConstantExpression(node: ts.Node): boolean {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return true;
+  }
+  if (ts.isTemplateExpression(node)) {
+    return false; // Template with substitutions like `Hello ${name}`
+  }
+  if (ts.isArrayLiteralExpression(node)) {
+    return node.elements.every((el) => isConstantExpression(el));
+  }
+  if (ts.isObjectLiteralExpression(node)) {
+    return node.properties.every((prop) => {
+      if (ts.isPropertyAssignment(prop)) {
+        return isConstantExpression(prop.initializer);
+      }
+      return false;
+    });
+  }
+  if (
+    ts.isNumericLiteral(node) ||
+    node.kind === ts.SyntaxKind.TrueKeyword ||
+    node.kind === ts.SyntaxKind.FalseKeyword
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function checkMessagesAreCacheable(
+  node: ts.CallExpression,
+  sourceFile: ts.SourceFile,
+): boolean {
+  for (const arg of node.arguments) {
+    if (ts.isObjectLiteralExpression(arg)) {
+      for (const prop of arg.properties) {
+        if (
+          ts.isPropertyAssignment(prop) &&
+          prop.name.getText(sourceFile) === "messages"
+        ) {
+          return isConstantExpression(prop.initializer);
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function isModelDeprecated(model_object: any): boolean {
+  if (!model_object || model_object.expiration_date === null) {
+    return false;
+  }
+  return true;
+}
+
 function getLoopInfo(node: ts.Node, sourceFile: ts.SourceFile): LoopInfo {
   const loopNode = findContainingLoop(node);
 
@@ -130,11 +186,15 @@ function parse_call_expression(
             Array.isArray(model_object.supported_parameters) &&
             model_object.supported_parameters.includes("include_reasoning");
           const loop_info = getLoopInfo(node, sourceFile);
+          const is_cacheable = checkMessagesAreCacheable(node, sourceFile);
+          const is_deprecated = isModelDeprecated(model_object);
           return {
             callee: callee,
             position: position,
             model: modelValue,
             supports_thinking: supports_thinking,
+            is_deprecated: is_deprecated,
+            is_cacheable: is_cacheable,
             loop_info: loop_info,
           };
         }

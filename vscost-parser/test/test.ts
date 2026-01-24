@@ -58,11 +58,12 @@ function call_LLM2(string prompt) {
 
 function call_LLM3(string prompt) {
   for (let i = 0; i < 10; i++) {
-    const response = openai.ChatCompletion.create({
-      model: "gpt-4",
+    const response = gemini.ChatCompletion.create({
+      model: "gemini-2.0-flash-001",
       messages: [
         { role: "system", content: "You are a helpful assistant." },
-        { role: "user", content: prompt },
+        { role: "user", content: "prompt" },
       ],
     });
   }
+}

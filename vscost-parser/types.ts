@@ -9,6 +9,8 @@ export interface LLMCall {
   position: { line: number; column: number };
   model: string;
   supports_thinking: boolean;
+  is_deprecated: boolean;
+  is_cacheable: boolean;
   loop_info: LoopInfo;
 }
 
