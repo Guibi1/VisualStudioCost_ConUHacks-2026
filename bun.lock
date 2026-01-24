@@ -39,6 +39,9 @@
     "vscode-extension": {
       "name": "vscost",
       "version": "0.0.1",
+      "dependencies": {
+        "vscost-parser": "workspace:*",
+      },
       "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
@@ -50,6 +53,15 @@
         "npm-run-all": "^4.1.5",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.52.0",
+      },
+    },
+    "vscost-parser": {
+      "name": "vscost-parser",
+      "dependencies": {
+        "typescript": "^5.9.3",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
       },
     },
     "website": {
@@ -1949,6 +1961,8 @@
     "vscost": ["vscost@workspace:vscode-extension"],
 
     "vscost-convex": ["vscost-convex@workspace:convex"],
+
+    "vscost-parser": ["vscost-parser@workspace:vscost-parser"],
 
     "web-streams-polyfill": ["web-streams-polyfill@3.3.3", "", {}, "sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw=="],
 

@@ -10,10 +10,7 @@
         "Other"
     ],
     "activationEvents": [
-        "onLanguage:typescript",
-        "onLanguage:typescriptreact",
-        "onLanguage:javascript",
-        "onLanguage:javascriptreact"
+        "onStartupFinished"
     ],
     "main": "./dist/extension.js",
     "contributes": {
@@ -37,6 +34,9 @@
         "check-types": "tsc --noEmit",
         "lint": "eslint src",
         "test": "vscode-test"
+    },
+    "dependencies": {
+      "vscost-parser":"workspace:*"
     },
     "devDependencies": {
         "@types/vscode": "^1.108.1",

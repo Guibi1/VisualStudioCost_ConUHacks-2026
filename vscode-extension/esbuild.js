@@ -1,7 +1,25 @@
 const esbuild = require("esbuild");
+const fs = require("fs");
+const path = require("path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+
+// Copy assets from vscost-parser to extension
+function copyAssets() {
+	const srcDir = path.join(__dirname, "..", "vscost-parser", "assets");
+	const destDir = path.join(__dirname, "assets");
+
+	if (!fs.existsSync(destDir)) {
+		fs.mkdirSync(destDir, { recursive: true });
+	}
+
+	const files = fs.readdirSync(srcDir);
+	for (const file of files) {
+		fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+	}
+	console.log("[assets] Copied assets from vscost-parser");
+}
 
 /**
  * @type {import('esbuild').Plugin}
@@ -24,6 +42,7 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
+	copyAssets();
 	const ctx = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'

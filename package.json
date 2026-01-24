@@ -4,6 +4,7 @@
     "workspaces": [
         "vscode-extension",
         "convex",
+        "vscost-parser",
         "github-app",
         "website"
     ],

@@ -8,6 +8,7 @@ export interface LLMCall {
   callee: string;
   position: { line: number; column: number };
   model: string;
+  cost_per_1M_tokens: number | null;
   supports_thinking: boolean;
   is_deprecated: boolean;
   is_cacheable: boolean;

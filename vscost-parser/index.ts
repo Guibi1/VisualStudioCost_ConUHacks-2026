@@ -7,13 +7,35 @@ import type {
   FunctionInfo,
   FileAnalysisResult,
   AnalysisResult,
-} from "./types";
+} from "./types.js";
+
+export type {
+  LLMCall,
+  LoopInfo,
+  FunctionInfo,
+  FileAnalysisResult,
+  AnalysisResult,
+} from "./types.js";
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
-const pricesPath = path.join(import.meta.dirname, "assets/prices_llm.json");
-const prices = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
+let pricesData: { data: any[] } | null = null;
+
+export function setPricesPath(pricesPath: string): void {
+  pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
+}
+
+function loadPrices(): { data: any[] } {
+  if (!pricesData) {
+    // Default path for CLI usage
+    const dir = import.meta.dirname ?? process.cwd();
+    const pricesPath = path.join(dir, "assets/prices_llm.json");
+    pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
+  }
+  return pricesData!;
+}
 
 function get_model_object(model_name: string): any | null {
+  const prices = loadPrices();
   for (const entry of prices.data) {
     if (entry.id.split("/").pop()! === model_name) {
       return entry;
@@ -167,9 +189,10 @@ function parse_call_expression(
   if (!isTargetCallee(callee)) {
     return null;
   }
-  const position = sourceFile.getLineAndCharacterOfPosition(
+  const pos = sourceFile.getLineAndCharacterOfPosition(
     node.getStart(sourceFile),
   );
+  const position = { line: pos.line, column: pos.character };
   for (const arg of node.arguments) {
     if (ts.isObjectLiteralExpression(arg)) {
       for (const prop of arg.properties) {
@@ -188,10 +211,14 @@ function parse_call_expression(
           const loop_info = getLoopInfo(node, sourceFile);
           const is_cacheable = checkMessagesAreCacheable(node, sourceFile);
           const is_deprecated = isModelDeprecated(model_object);
+          const cost_per_1M_tokens = model_object?.pricing?.prompt
+            ? parseFloat(model_object.pricing.prompt) * 1_000_000
+            : null;
           return {
             callee: callee,
             position: position,
             model: modelValue,
+            cost_per_1M_tokens: cost_per_1M_tokens,
             supports_thinking: supports_thinking,
             is_deprecated: is_deprecated,
             is_cacheable: is_cacheable,
@@ -224,21 +251,22 @@ function setParentNodes(node: ts.Node, parent?: ts.Node): void {
 }
 
 function parse_file(file_path: string): FileAnalysisResult {
-  const ast = ts.createProgram([file_path], {}).getSourceFile(file_path);
-  if (!ast) {
+  const maybeAst = ts.createProgram([file_path], {}).getSourceFile(file_path);
+  if (!maybeAst) {
     throw new Error(`Could not create AST from file: ${file_path}`);
   }
+  const ast: ts.SourceFile = maybeAst;
 
   // Set parent references for all nodes
   setParentNodes(ast);
 
   const functions: FunctionInfo[] = [];
-  let totalCost = 0;
 
   function visitNode(node: ts.Node) {
     if (ts.isFunctionDeclaration(node) && node.name) {
       const funcName = node.name.getText(ast);
-      const pos = ast.getLineAndCharacterOfPosition(node.getStart(ast));
+      const funcPos = ast.getLineAndCharacterOfPosition(node.getStart(ast));
+      const position = { line: funcPos.line, column: funcPos.character };
       const llmCalls: LLMCall[] = [];
 
       const callExpressions = findAllCallExpressions(node);
@@ -250,7 +278,7 @@ function parse_file(file_path: string): FileAnalysisResult {
       }
 
       if (llmCalls.length > 0) {
-        functions.push({ name: funcName, position: pos, llm_calls: llmCalls });
+        functions.push({ name: funcName, position: position, llm_calls: llmCalls });
       }
     }
     ts.forEachChild(node, visitNode);
@@ -290,7 +318,7 @@ function get_all_files(dir_path: string): string[] {
   return files;
 }
 
-function analyze_code(dir_path: string): AnalysisResult {
+export function analyze_code(dir_path: string): AnalysisResult {
   const files = get_all_files(dir_path);
   const fileResults: FileAnalysisResult[] = [];
   let totalCost = 0;
@@ -311,5 +339,8 @@ function analyze_code(dir_path: string): AnalysisResult {
   };
 }
 
-const targetDir = process.argv[2] || ".";
-console.log(JSON.stringify(analyze_code(targetDir), null, 2));
+// CLI entry point - only run when executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const targetDir = process.argv[2] || ".";
+  console.log(JSON.stringify(analyze_code(targetDir), null, 2));
+}
