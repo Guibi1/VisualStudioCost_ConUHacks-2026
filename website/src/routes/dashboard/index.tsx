@@ -9,7 +9,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
 
-const budgetValue = 65; //TODO remplacer exemple chatgpt 
+const budgetValue = 105; //TODO remplacer exemple chatgpt 
 const niveauWarning = 90;  // % pour afficher le budget en jaune
 
 
