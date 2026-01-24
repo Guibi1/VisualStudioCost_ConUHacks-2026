@@ -5,12 +5,11 @@ import { v } from "convex/values";
 export default defineSchema({
     ...authTables,
     users: defineTable({
-      username: v.string(),
-      name: v.string(),
-      image: v.optional(v.string()),
-      email: v.string(),
-    })
-      .index("by_email", ["email"]),
+        username: v.string(),
+        name: v.string(),
+        image: v.optional(v.string()),
+        email: v.string(),
+    }).index("by_email", ["email"]),
     repositories: defineTable({
         name: v.string(),
         latest: v.string(),
