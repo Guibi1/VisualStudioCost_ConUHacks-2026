@@ -36,7 +36,7 @@
         "test": "vscode-test"
     },
     "dependencies": {
-      "vscost-parser":"workspace:*"
+        "vscost-parser": "workspace:*"
     },
     "devDependencies": {
         "@types/vscode": "^1.108.1",

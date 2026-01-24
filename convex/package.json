@@ -8,6 +8,7 @@
         "@auth/core": "0.37.0",
         "@convex-dev/auth": "^0.0.90",
         "@convex-dev/workflow": "^0.3.4",
+        "jszip": "^3.10.1",
         "octokit": "^5.0.5"
     },
     "devDependencies": {

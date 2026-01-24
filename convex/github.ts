@@ -1,15 +1,46 @@
+"use node";
+
 import { v } from "convex/values";
 import { workflow } from ".";
 import { action } from "./_generated/server";
-import { App, Octokit } from "octokit";
+import { Octokit } from "octokit";
+import JSZip from "jszip";
+
+const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
 const oktobaby = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
 export const verify_pr = workflow.define({
     args: {
-        userId: v.id("users"),
+        owner: v.string(),
+        repo: v.string(),
+        commit_hash: v.string(),
+        pull_id: v.number(),
     },
-    handler: async (ctx, args): Promise<void> => {},
+    handler: async (ctx, args): Promise<void> => {
+        const response = await oktobaby.rest.repos.downloadZipballArchive({
+            owner: args.owner,
+            repo: args.repo,
+            ref: args.commit_hash,
+        });
+
+        const zip = await JSZip.loadAsync(response.data);
+        const files = new Map<string, string>();
+
+        const rootPrefix = Object.keys(zip.files)[0].split("/")[0] + "/";
+        for (const [zipPath, entry] of Object.entries(zip.files)) {
+            if (entry.dir) continue;
+
+            if (!zipPath.startsWith(rootPrefix)) continue;
+            const relativePath = zipPath.slice(rootPrefix.length);
+
+            const ext = relativePath.slice(relativePath.lastIndexOf("."));
+            if (!ALLOWED_EXTENSIONS.has(ext)) continue;
+
+            const content = await entry.async("string");
+            files.set(relativePath, content);
+        }
+    },
 });
 
 export const startcheck_pr = action({
