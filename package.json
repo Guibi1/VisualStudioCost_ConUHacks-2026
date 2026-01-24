@@ -8,7 +8,7 @@
         "website"
     ],
     "scripts": {
-        "dev": "concurrently 'cd website && bunx vite dev' 'bunx --bun convex dev --typecheck disable'",
+        "dev": "concurrently 'cd website && bunx vite dev' 'cd website && bunx --bun convex dev --typecheck disable'",
         "build": "cd website && bunx --bun vite build",
         "preview": "cd website && bunx vite preview",
         "deploy": "cd website && bun run build && bunx wrangler deploy",
