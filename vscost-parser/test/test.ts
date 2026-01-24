@@ -1,3 +1,5 @@
+import { OperationCanceledException } from "typescript";
+
 function call_LLM(string prompt) {
   const response = fetch('https://api.example.com/llm', {
     method: 'POST',
@@ -53,3 +55,14 @@ function call_LLM2(string prompt) {
 
   return response.json();
 }
+
+function call_LLM3(string prompt) {
+  for (let i = 0; i < 10; i++) {
+    const response = openai.ChatCompletion.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "You are a helpful assistant." },
+        { role: "user", content: prompt },
+      ],
+    });
+  }

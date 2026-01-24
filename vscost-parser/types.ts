@@ -1,7 +1,15 @@
+export interface LoopInfo {
+  is_in_loop: boolean;
+  loop_type: string | null;
+  position: { line: number; column: number } | null;
+}
+
 export interface LLMCall {
   callee: string;
   position: { line: number; column: number };
   model: string;
+  supports_thinking: boolean;
+  loop_info: LoopInfo;
 }
 
 export interface FunctionInfo {

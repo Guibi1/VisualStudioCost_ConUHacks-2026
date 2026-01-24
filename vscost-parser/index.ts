@@ -3,18 +3,19 @@ import * as fs from "fs";
 import * as path from "path";
 import type {
   LLMCall,
+  LoopInfo,
   FunctionInfo,
   FileAnalysisResult,
   AnalysisResult,
 } from "./types";
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
-function get_model_cost(model_name: string): number | null {
+function get_model_object(model_name: string): any | null {
   // read file assets/prices_llm.json
   const prices = require("./assets/prices_llm.json");
   for (const entry of prices.data) {
     if (entry.id.split("/").pop()! === model_name) {
-      return parseFloat(entry.pricing.prompt);
+      return entry;
     }
   }
   return null;
@@ -27,6 +28,79 @@ function isTargetCallee(callee: string): boolean {
     callee === "anthropic.chat.completions.create" ||
     callee === "openRouter.chat.send"
   );
+}
+
+const ARRAY_LOOP_METHODS = ["forEach", "map", "filter"];
+
+function isArrayLoopMethod(node: ts.CallExpression): string | null {
+  if (ts.isPropertyAccessExpression(node.expression)) {
+    const methodName = node.expression.name.getText();
+    if (ARRAY_LOOP_METHODS.includes(methodName)) {
+      return methodName;
+    }
+  }
+  return null;
+}
+
+function findContainingLoop(node: ts.Node): ts.Node | null {
+  let current = node.parent;
+
+  while (current) {
+    if (
+      ts.isForStatement(current) ||
+      ts.isForOfStatement(current) ||
+      ts.isForInStatement(current) ||
+      ts.isWhileStatement(current) ||
+      ts.isDoStatement(current)
+    ) {
+      return current;
+    }
+
+    if (ts.isCallExpression(current) && isArrayLoopMethod(current)) {
+      return current;
+    }
+
+    current = current.parent;
+  }
+
+  return null;
+}
+
+function getLoopType(node: ts.Node): string {
+  if (ts.isForStatement(node)) return "for";
+  if (ts.isForOfStatement(node)) return "for...of";
+  if (ts.isForInStatement(node)) return "for...in";
+  if (ts.isWhileStatement(node)) return "while";
+  if (ts.isDoStatement(node)) return "do...while";
+
+  if (ts.isCallExpression(node)) {
+    const method = isArrayLoopMethod(node);
+    if (method) return method;
+  }
+
+  return "unknown";
+}
+
+function getLoopInfo(node: ts.Node, sourceFile: ts.SourceFile): LoopInfo {
+  const loopNode = findContainingLoop(node);
+
+  if (!loopNode) {
+    return {
+      is_in_loop: false,
+      loop_type: null,
+      position: null,
+    };
+  }
+
+  const pos = sourceFile.getLineAndCharacterOfPosition(
+    loopNode.getStart(sourceFile),
+  );
+
+  return {
+    is_in_loop: true,
+    loop_type: getLoopType(loopNode),
+    position: { line: pos.line, column: pos.character },
+  };
 }
 
 function parse_call_expression(
@@ -50,11 +124,18 @@ function parse_call_expression(
           const modelValue = prop.initializer
             .getText(sourceFile)
             .replace(/['"`]/g, "");
-          const cost = get_model_cost(modelValue);
+          const model_object = get_model_object(modelValue);
+          const supports_thinking =
+            model_object &&
+            Array.isArray(model_object.supported_parameters) &&
+            model_object.supported_parameters.includes("include_reasoning");
+          const loop_info = getLoopInfo(node, sourceFile);
           return {
             callee: callee,
             position: position,
             model: modelValue,
+            supports_thinking: supports_thinking,
+            loop_info: loop_info,
           };
         }
       }
@@ -75,11 +156,21 @@ function findAllCallExpressions(node: ts.Node): ts.CallExpression[] {
   return calls;
 }
 
+function setParentNodes(node: ts.Node, parent?: ts.Node): void {
+  if (parent) {
+    (node as any).parent = parent;
+  }
+  ts.forEachChild(node, (child) => setParentNodes(child, node));
+}
+
 function parse_file(file_path: string): FileAnalysisResult {
   const ast = ts.createProgram([file_path], {}).getSourceFile(file_path);
   if (!ast) {
     throw new Error(`Could not create AST from file: ${file_path}`);
   }
+
+  // Set parent references for all nodes
+  setParentNodes(ast);
 
   const functions: FunctionInfo[] = [];
   let totalCost = 0;
@@ -149,7 +240,6 @@ function analyze_code(dir_path: string): AnalysisResult {
       const result = parse_file(file);
       if (result.functions.length > 0) {
         fileResults.push(result);
-        totalCost += result.total_cost_per_1M_tokens;
       }
     } catch (error) {
       console.error(`Error parsing ${file}:`, error);
