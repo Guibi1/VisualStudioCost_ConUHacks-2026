@@ -110,10 +110,15 @@ export const completeCommitCheck = action({
         repo: v.string(),
         run_id: v.number(),
         success: v.boolean(),
+        estimated_calls: v.number(),
+        estimated_cost: v.number(),
+        limit_cost: v.number(),
+        limit_calls: v.number(),
+        summary : v.string()
     },
     handler: async (_ctx, args) => {
         try {
-            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
+          const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
 
             await installationOctokit.rest.checks.update({
                 owner: args.owner,
@@ -122,8 +127,14 @@ export const completeCommitCheck = action({
                 status: "completed",
                 completed_at: new Date().toISOString(),
                 output: {
-                    title: "TODODODODODODODOOOODODOODODODODODODODODODODODODDO",
-                    summary: "Done with automated review",
+                    title: args.success ? "✅ This commit keeps the project within the configured limits."
+                    : "⚠️ This commit makes the project exceed at least one configured limit.",
+                  summary: [`Estimated Calls : ${args.estimated_calls}, Limit : ${args.limit_calls}`,
+                          `Estimated Calls : ${args.estimated_cost}, Limit : ${args.limit_cost}`,
+                          args.summary,
+                          "",
+                          "Done with automated review.",
+                        ].join("\n"),
                 },
                 conclusion: args.success ? "success" : "failure",
             });

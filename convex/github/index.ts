@@ -27,6 +27,7 @@ export const verify_pr = workflow.define({
             repo,
             commit_hash,
         });
+
         await ctx.runMutation(api.repositories.addCommit, {
             owner,
             repo,
@@ -36,10 +37,10 @@ export const verify_pr = workflow.define({
 
         const files = Array.isArray(analysis?.files) ? analysis.files : [];
         const total = files.reduce(
-            (acc, file) => {
-                const functions = Array.isArray(file?.functions) ? file.functions : [];
+          (acc, file) => {
+            const functions = Array.isArray(file?.functions) ? file.functions : [];
                 const fileTotals = functions.reduce(
-                    (fnAcc, fn) => {
+                  (fnAcc, fn) => {
                         const calls = Array.isArray(fn?.llm_calls) ? fn.llm_calls : [];
                         const cost = calls.reduce((callAcc, call) => callAcc + (call?.cost_per_1M_tokens ?? 0), 0);
                         return { cost: fnAcc.cost + cost, calls: fnAcc.calls + calls.length };
@@ -79,13 +80,78 @@ export const verify_pr = workflow.define({
             }),
         );
 
-        const withinLimits = total.calls < limits.calls && total.cost < limits.cost;
+      const withinLimits = total.calls < limits.calls && total.cost < limits.cost;
+
+      const top3Files = files
+        .map(file => {
+          const functions = Array.isArray(file?.functions) ? file.functions : [];
+
+          const acc = functions.reduce(
+            (fnAcc, fn) => {
+              const calls = Array.isArray(fn?.llm_calls) ? fn.llm_calls : [];
+
+              calls.forEach(call => {
+                fnAcc.cost += call?.cost_per_1M_tokens ?? 0;
+
+                if (call?.position?.row != null && call?.position?.col != null) {
+                  fnAcc.positions.push({
+                    row: call.position.row,
+                    col: call.position.col,
+                  });
+                }
+              });
+
+              return fnAcc;
+            },
+            {
+              cost: 0,
+              positions: [] as { row: number; col: number }[],
+            },
+          );
+
+          return {
+            filename: file.file_path ?? "unknown",
+            cost: acc.cost,
+            positions: acc.positions,
+          };
+        })
+        .filter(file => file.cost > 0)
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 3);
+
+      const expensiveFilesSummary =
+        top3Files.length > 0
+          ? [
+              "### 💸 Most expensive files",
+              "",
+              ...top3Files.map((file, index) => {
+                const positions =
+                  file.positions.length > 0
+                    ? file.positions
+                        .map(pos => `(${pos.row}, ${pos.col})`)
+                        .join(", ")
+                    : "N/A";
+
+                return (
+                  `${index + 1}. **${file.filename}**\n` +
+                  `   - Cost: **${file.cost}**\n` +
+                  `   - Positions: ${positions}`
+                );
+              }),
+            ].join("\n")
+          : "No expensive files detected.";
+
 
         await ctx.runAction(api.github.actions.completeCommitCheck, {
             owner,
             repo,
             run_id: checkId,
             success: withinLimits,
+            estimated_calls: total.calls,
+            estimated_cost: total.cost,
+            limit_cost: limits.cost,
+          limit_calls: limits.calls,
+          summary: expensiveFilesSummary
         });
 
         if (pull_number !== undefined && pull_number !== null) {
@@ -101,7 +167,9 @@ export const verify_pr = workflow.define({
                 "",
                 withinLimits
                     ? "✅ This pull request is within the configured limits."
-                    : "⚠️ This pull request exceeds at least one configured limit.",
+                : "⚠️ This pull request exceeds at least one configured limit.",
+              "",
+              expensiveFilesSummary
             ].join("\n");
 
             await ctx.runAction(api.github.actions.comment_pr, {
