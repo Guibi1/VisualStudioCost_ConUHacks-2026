@@ -15,6 +15,26 @@ export type {
 
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
+let pricesData: { data: any[] } | null = null;
+
+export function setPricesPath(pricesPath: string): void {
+    pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
+}
+
+function loadPrices(): { data: any[] } {
+    if (!pricesData) {
+        try {
+            const dir = import.meta.dirname ?? process.cwd();
+            const pricesPath = path.join(dir, "assets/prices_llm.json");
+            pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
+        } catch {
+            // Fallback to bundled prices when JSON asset is not available
+            pricesData = prices_llm as { data: any[] };
+        }
+    }
+    return pricesData!;
+}
+
 function get_model_object(model_name: string): any | null {
     const prices = loadPrices();
     // Prefer exact match (needed for ai.generateText which uses full ids like "google/gemini-2.5-pro")
