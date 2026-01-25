@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import ts from "typescript";
-import type { AnalysisResult, FileAnalysisResult, FunctionInfo, LLMCall, LoopInfo } from "./types";
+import type { AnalysisResult, FileAnalysisResult, FunctionInfo, LLMCall, LoopInfo } from "./types.js";
 
 export type {
     AnalysisResult,

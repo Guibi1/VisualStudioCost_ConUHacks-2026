@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import { get_all_files } from "vscost-parser";
 
 interface LoopInfo {
     is_in_loop: boolean;
@@ -177,8 +178,8 @@ export async function activate(context: vscode.ExtensionContext) {
         const pricesPath = path.join(context.extensionPath, "assets", "prices_llm.json");
         console.log("Prices path:", pricesPath);
         setPricesPath(pricesPath);
-
-        const analysis = analyze_code(projectPath);
+        const files = get_all_files(projectPath);
+        const analysis = analyze_code(files);
         console.log("Analysis complete:", JSON.stringify(analysis, null, 2));
 
         const provider = new FunctionHintProvider(analysis);
