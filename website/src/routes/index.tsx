@@ -7,10 +7,20 @@ function Page() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="max-w-xl text-center space-y-6">
-        <h1 className="text-4xl font-bold tracking-tight">VSCost</h1>
+        {/* Logo + title */}
+        <div className="flex items-center justify-center gap-4">
+          <img
+            src="/logo.png"
+            alt="VSCost logo"
+            className="h-12 w-12 mt-1"
+          />
+          <h1 className="text-4xl font-bold tracking-tight">
+            VSCost
+          </h1>
+        </div>
 
         <p className="text-muted-foreground">
-          Visualiser, suivre et comprendre vos coûts en temps réel.
+          Track, visualize, and understand your costs over time.
         </p>
 
         <Button
@@ -18,13 +28,13 @@ function Page() {
           render={<Link to="/dashboard" />}
           nativeButton={false}
         >
-          Ouvrir le Dashboard
+          Open Dashboard
         </Button>
 
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-muted-foreground">
-          <div>📊 Répartition des coûts</div>
-          <div>⏱ Mises à jour en temps réel</div>
-          <div>📈 Évolution temporelle et tendances</div>
+          <div>📊 Cost breakdowns</div>
+          <div>⏱ Real-time updates</div>
+          <div>📈 Historical trends</div>
         </div>
       </div>
     </div>
