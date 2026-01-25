@@ -9,10 +9,26 @@ import { action } from "../_generated/server";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
-const oktobaby = new Octokit({
+const appOctokit = new Octokit({
     authStrategy: createAppAuth,
     auth: { appId: process.env.GITHUB_APP_ID, privateKey: process.env.GITHUB_PRIVATE_KEY },
 });
+
+const getInstallationOctokit = async (owner: string, repo: string) => {
+    const { data: installation } = await appOctokit.rest.apps.getRepoInstallation({
+        owner,
+        repo,
+    });
+
+    return new Octokit({
+        authStrategy: createAppAuth,
+        auth: {
+            appId: process.env.GITHUB_APP_ID,
+            privateKey: process.env.GITHUB_PRIVATE_KEY,
+            installationId: installation.id,
+        },
+    });
+};
 
 export const analyzeRepoFiles = action({
     args: {
@@ -21,7 +37,9 @@ export const analyzeRepoFiles = action({
         commit_hash: v.string(),
     },
     handler: async (_ctx, args) => {
-        const response = await oktobaby.rest.repos.downloadZipballArchive({
+        const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
+
+        const response = await installationOctokit.rest.repos.downloadZipballArchive({
             owner: args.owner,
             repo: args.repo,
             ref: args.commit_hash,
@@ -59,7 +77,9 @@ export const startCommitCheck = action({
     },
     handler: async (_ctx, args) => {
         try {
-            const check = await oktobaby.rest.checks.create({
+            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
+
+            const check = await installationOctokit.rest.checks.create({
                 owner: args.owner,
                 repo: args.repo,
                 name: "VS Cost",
@@ -92,7 +112,9 @@ export const completeCommitCheck = action({
     },
     handler: async (_ctx, args) => {
         try {
-            await oktobaby.rest.checks.update({
+            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
+
+            await installationOctokit.rest.checks.update({
                 owner: args.owner,
                 repo: args.repo,
                 check_run_id: args.run_id,
@@ -118,7 +140,9 @@ export const comment_pr = action({
     args: { owner: v.string(), repo: v.string(), issue_number: v.number(), body: v.string() },
     handler: async (_ctx, args) => {
         try {
-            await oktobaby.rest.issues.createComment({
+            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
+
+            await installationOctokit.rest.issues.createComment({
                 owner: args.owner,
                 repo: args.repo,
                 issue_number: args.issue_number,
