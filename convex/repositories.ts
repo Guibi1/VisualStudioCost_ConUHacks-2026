@@ -122,11 +122,13 @@ export const addCompleteCommit = mutation({
 });
 
 export const complete_commits_query = query({
-  args: {repo: v.string()},
-    handler: async (ctx) => {
-      const commits = await ctx.db
-        .query("complete_commits").filter((q) => q.eq(q.field("repo"), args.repo)).collect();
-      if (!commits) return null;
-        return commits.map(commit => commit.sha)
+    args: { repo: v.string() },
+    handler: async (ctx, args) => {
+        const commits = await ctx.db
+            .query("complete_commits")
+            .filter((q) => q.eq(q.field("repo"), args.repo))
+            .collect();
+        if (!commits) return null;
+        return commits.map((commit) => commit.sha);
     },
 });

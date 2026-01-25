@@ -165,64 +165,73 @@ export const get_main_commits_with_code = action({
         repo: v.string(),
         limit: v.optional(v.number()), // max number of commits
     },
+
     handler: async (ctx, args) => {
         try {
             const limit = args.limit ?? 10;
 
             const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
 
-      // 1️⃣ List recent commits on main
-      const { data: commits } = await installationOctokit.rest.repos.listCommits({
-        owner: args.owner,
-        repo: args.repo,
-        sha: "main", // main branch
-        per_page: limit,
-      });
+            // 1️⃣ List recent commits on main
+            const { data: commits } = await installationOctokit.rest.repos.listCommits({
+                owner: args.owner,
+                repo: args.repo,
+                sha: "main",
+                per_page: limit,
+            });
 
-      const existant_commits: string[] = await ctx.runQuery(api.repositories.complete_commits_query, {repo: args.repo}) ?? [];
+            const existant_commits: string[] =
+                (await ctx.runQuery(api.repositories.complete_commits_query, { repo: args.repo })) ?? [];
 
-      // 2️⃣ For each commit, fetch changed files + code
-      const results = await Promise.all(
-        commits.filter(commit => existant_commits.includes(commit.sha)).map(async (commit) => {
-          const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
-            owner: args.owner,
-            repo: args.repo,
-            ref: commit.sha,
-          });
+            // 2️⃣ For each commit, fetch changed files + code
+            const results = await Promise.all(
+                commits
+                    .filter((commit) => existant_commits.includes(commit.sha))
+                    .map(async (commit) => {
+                        const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
+                            owner: args.owner,
+                            repo: args.repo,
+                            ref: commit.sha,
+                        });
 
-                            try {
-                                const { data: content } = await installationOctokit.rest.repos.getContent({
-                                    owner: args.owner,
-                                    repo: args.repo,
-                                    path: file.filename,
-                                    ref: commit.sha,
-                                });
+                        const files = await Promise.all(
+                            (fullCommit.files ?? []).map(async (file) => {
+                                if (file.status === "removed") return null;
 
-                                if ("content" in content && content.encoding === "base64") {
-                                    return {
-                                        filename: file.filename,
-                                        status: file.status,
-                                        patch: file.patch,
-                                        additions: file.additions,
-                                        deletions: file.deletions,
-                                        content: Buffer.from(content.content, "base64").toString("utf-8"),
-                                    };
+                                try {
+                                    const { data: content } = await installationOctokit.rest.repos.getContent({
+                                        owner: args.owner,
+                                        repo: args.repo,
+                                        path: file.filename,
+                                        ref: commit.sha,
+                                    });
+
+                                    if ("content" in content && content.encoding === "base64") {
+                                        return {
+                                            filename: file.filename,
+                                            status: file.status,
+                                            patch: file.patch,
+                                            additions: file.additions,
+                                            deletions: file.deletions,
+                                            content: Buffer.from(content.content, "base64").toString("utf-8"),
+                                        };
+                                    }
+
+                                    return null;
+                                } catch {
+                                    return null; // binary / large file
                                 }
-                                return null;
-                            } catch {
-                                return null; // binary/large
-                            }
-                        }),
-                    );
+                            }),
+                        );
 
-                    return {
-                        sha: commit.sha,
-                        message: commit.commit.message,
-                        author: commit.commit.author,
-                        date: commit.commit.author?.date,
-                        files: files.filter(Boolean),
-                    };
-                }),
+                        return {
+                            sha: commit.sha,
+                            message: commit.commit.message,
+                            author: commit.commit.author,
+                            date: commit.commit.author?.date,
+                            files: files.filter(Boolean),
+                        };
+                    }),
             );
 
             return results;
