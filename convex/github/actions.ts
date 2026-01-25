@@ -1,6 +1,5 @@
 "use node";
 
-import { createAppAuth } from "@octokit/auth-app";
 import { v } from "convex/values";
 import JSZip from "jszip";
 import { Octokit } from "octokit";
@@ -9,26 +8,7 @@ import { action } from "../_generated/server";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
-const appOctokit = new Octokit({
-    authStrategy: createAppAuth,
-    auth: { appId: process.env.GITHUB_APP_ID, privateKey: process.env.GITHUB_PRIVATE_KEY },
-});
-
-const getInstallationOctokit = async (owner: string, repo: string) => {
-    const { data: installation } = await appOctokit.rest.apps.getRepoInstallation({
-        owner,
-        repo,
-    });
-
-    return new Octokit({
-        authStrategy: createAppAuth,
-        auth: {
-            appId: process.env.GITHUB_APP_ID,
-            privateKey: process.env.GITHUB_PRIVATE_KEY,
-            installationId: installation.id,
-        },
-    });
-};
+const oktobaby = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
 export const analyzeRepoFiles = action({
     args: {
@@ -37,9 +17,7 @@ export const analyzeRepoFiles = action({
         commit_hash: v.string(),
     },
     handler: async (_ctx, args) => {
-        const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
-
-        const response = await installationOctokit.rest.repos.downloadZipballArchive({
+        const response = await oktobaby.rest.repos.downloadZipballArchive({
             owner: args.owner,
             repo: args.repo,
             ref: args.commit_hash,
@@ -77,9 +55,7 @@ export const startCommitCheck = action({
     },
     handler: async (_ctx, args) => {
         try {
-            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
-
-            const check = await installationOctokit.rest.checks.create({
+            const check = await oktobaby.rest.checks.create({
                 owner: args.owner,
                 repo: args.repo,
                 name: "VS Cost",
@@ -112,9 +88,7 @@ export const completeCommitCheck = action({
     },
     handler: async (_ctx, args) => {
         try {
-            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
-
-            await installationOctokit.rest.checks.update({
+            await oktobaby.rest.checks.update({
                 owner: args.owner,
                 repo: args.repo,
                 check_run_id: args.run_id,
@@ -140,9 +114,7 @@ export const comment_pr = action({
     args: { owner: v.string(), repo: v.string(), issue_number: v.number(), body: v.string() },
     handler: async (_ctx, args) => {
         try {
-            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
-
-            await installationOctokit.rest.issues.createComment({
+            await oktobaby.rest.issues.createComment({
                 owner: args.owner,
                 repo: args.repo,
                 issue_number: args.issue_number,
@@ -156,4 +128,86 @@ export const comment_pr = action({
             }
         }
     },
+});
+
+export const get_main_commits_with_code = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+    limit: v.optional(v.number()), // max number of commits
+  },
+  handler: async (ctx, args) => {
+    try {
+      const limit = args.limit ?? 10;
+
+      // 1️⃣ List recent commits on main
+      const { data: commits } = await oktobaby.rest.repos.listCommits({
+        owner: args.owner,
+        repo: args.repo,
+        sha: "main", // main branch
+        per_page: limit,
+      });
+
+      // 2️⃣ For each commit, fetch changed files + code
+      const results = await Promise.all(
+        commits.map(async (commit) => {
+          const { data: fullCommit } = await oktobaby.rest.repos.getCommit({
+            owner: args.owner,
+            repo: args.repo,
+            ref: commit.sha,
+          });
+
+          const files = await Promise.all(
+            (fullCommit.files ?? []).map(async (file) => {
+              if (file.status === "removed") return null;
+
+              try {
+                const { data: content } = await oktobaby.rest.repos.getContent({
+                  owner: args.owner,
+                  repo: args.repo,
+                  path: file.filename,
+                  ref: commit.sha,
+                });
+
+                if ("content" in content && content.encoding === "base64") {
+                  return {
+                    filename: file.filename,
+                    status: file.status,
+                    patch: file.patch,
+                    additions: file.additions,
+                    deletions: file.deletions,
+                    content: Buffer.from(content.content, "base64").toString(
+                      "utf-8"
+                    ),
+                  };
+                }
+                return null;
+              } catch {
+                return null; // binary/large
+              }
+            })
+          );
+
+          return {
+            sha: commit.sha,
+            message: commit.commit.message,
+            author: commit.commit.author,
+            date: commit.commit.author?.date,
+            files: files.filter(Boolean),
+          };
+        })
+      );
+
+      return results;
+    } catch (error: any) {
+      if (error.response) {
+        console.error(
+          `Error ${error.response.status}: ${error.response.data.message}`
+        );
+      } else {
+        console.error(error);
+      }
+      throw error;
+    }
+  },
 });

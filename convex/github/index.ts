@@ -51,6 +51,36 @@ export const verify_pr = workflow.define({
             { cost: 0, calls: 0 },
         );
 
+        const complete_commits = await ctx.runAction(api.github.actions.get_main_commits_with_code, {
+            owner,
+            repo,
+        });
+
+      await Promise.all( complete_commits.map( async (commit) => {
+        await ctx.runMutation(api.repositories.addCompleteCommit, {
+          owner,
+          repo,
+          sha: commit.sha,
+          message: commit.message,
+          author: {
+            name: commit.author?.name,
+            email: commit.author?.email,
+            date: commit.author?.date,
+          },
+          files: commit.files.map((file) => ({
+            filename: file?.filename ?? "empty",
+            patch: file?.patch,
+            additions: file?.additions,
+            deletions: file?.deletions,
+            content: file?.content,
+          })),
+        });
+      }))
+
+
+
+
+
         const withinLimits = total.calls < limits.calls && total.cost < limits.cost;
 
         await ctx.runAction(api.github.actions.completeCommitCheck, {

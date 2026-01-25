@@ -75,3 +75,49 @@ export const addCommit = mutation({
         await ctx.db.patch("repositories", repository._id, { latest: args.commit_hash });
     },
 });
+
+export const addCompleteCommit = mutation({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+    sha: v.string(),
+    message: v.string(),
+    author: v.object({
+      name: v.optional(v.string()),
+      email: v.optional(v.string()),
+      date: v.optional(v.string()),
+    }),
+    files: v.array(
+      v.object({
+        filename: v.string(),
+        patch: v.optional(v.string()),
+        additions: v.number(),
+        deletions: v.number(),
+        content: v.string(),
+      })
+    ),
+  },
+
+  handler: async (ctx, args) => {
+
+    // optional: prevent duplicates
+    const existing = await ctx.db
+      .query("complete_commits")
+      .withIndex("by_repo", (q) => q.eq("owner", args.owner).eq("repo", args.repo))
+      .filter((q) => q.eq(q.field("sha"), args.sha))
+      .first();
+
+    if (existing) {
+      return existing._id;
+    }
+
+    return await ctx.db.insert("complete_commits", {
+      owner: args.owner,
+      repo: args.repo,
+      sha: args.sha,
+      message: args.message,
+      author: args.author,
+      files: args.files,
+    });
+  },
+});
