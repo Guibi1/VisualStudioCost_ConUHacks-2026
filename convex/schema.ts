@@ -14,7 +14,7 @@ export default defineSchema({
         owner: v.string(),
         repo: v.string(),
         enabled: v.boolean(),
-        latest: v.string(),
+        latest: v.optional(v.string()),
         costLimit: v.number(),
         callsLimit: v.number(),
     })
