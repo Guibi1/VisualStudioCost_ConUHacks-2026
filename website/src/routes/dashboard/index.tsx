@@ -44,18 +44,11 @@ const usedBudget = (budgetValue / 100) * dailyBudget;
 const remainingBudget = dailyBudget - usedBudget;
 const budgetStatusText =
     remainingBudget >= 0
-        ? `${remainingBudget.toFixed(2)}$ restant aujourd'hui`
-        : `${Math.abs(remainingBudget).toFixed(2)}$ de dépassement aujourd'hui`;
+        ? `${remainingBudget.toFixed(2)}$ left for today`
+        : `${Math.abs(remainingBudget).toFixed(2)}$ of overflow today`;
 
 const budgetLabel =
-    budgetValue < niveauWarning ? "Respecte le budget" : budgetValue < 100 ? "Attention" : "Budget dépassé!";
-
-const progressColorClass =
-    budgetValue > 100
-        ? "[&>div]:bg-red-600"
-        : budgetValue >= niveauWarning
-          ? "[&>div]:bg-yellow-500"
-          : "[&>div]:bg-blue-600";
+    budgetValue < niveauWarning ? "Respect the budget" : budgetValue < 100 ? "Careful" : "Budget exceeded!";
 
 function Dashboard() {
     const repo = useRepo();
@@ -63,6 +56,7 @@ function Dashboard() {
         api.repositories.getCommits,
         repo?.latest ? { owner: repo.owner, repo: repo.repo } : "skip",
     );
+
     const commits = useMemo(
         () =>
             rawCommits
@@ -105,6 +99,31 @@ function Dashboard() {
 
     if (!repo || !commits || !fullCommits) return null;
     console.log(selectedCommitFull);
+    // Sum up the total cost from commits
+    const totalCostUsed = commits.reduce((acc, c) => acc + c.total.cost, 0);
+
+    // Daily budget from repo
+    const dailyBudget = repo?.costLimit ?? 100;
+
+    // Compute remaining / overbudget
+    const remainingBudget = dailyBudget - totalCostUsed;
+    const overBudget = Math.max(totalCostUsed - dailyBudget, 0);
+
+    // Status text
+    const budgetStatusText =
+        remainingBudget >= 0
+            ? `${remainingBudget.toFixed(2)}$ left for today`
+            : `${overBudget.toFixed(2)}$ of overflow today`;
+
+    const budgetLabel =
+        totalCostUsed < dailyBudget * 0.9
+            ? "Within budget"
+            : totalCostUsed <= dailyBudget
+              ? "Careful"
+              : "Budget exceeded!";
+
+    if (!repo || !commits) return null;
+    console.log(commits);
 
     return (
         <div className="space-y-8 bg-linear-to-br from-neutral-950 via-neutral-900 to-neutral-950 p-8 text-white">
@@ -235,9 +254,10 @@ function Dashboard() {
                             <PieChart>
                                 <Pie
                                     data={[
-                                        { name: "Used", value: budgetValue },
-                                        { name: "Remaining", value: Math.max(100 - budgetValue, 0) },
-                                    ]}
+                                        { name: "Used", value: Math.min(totalCostUsed, dailyBudget) },
+                                        { name: "Remaining", value: Math.max(dailyBudget - totalCostUsed, 0) },
+                                        { name: "Over", value: overBudget }, // only if > 0
+                                    ].filter((d) => d.value > 0)}
                                     dataKey="value"
                                     nameKey="name"
                                     cx="50%"
@@ -246,22 +266,25 @@ function Dashboard() {
                                     outerRadius={80}
                                     paddingAngle={2}
                                     startAngle={90}
-                                    endAngle={-270} // makes the chart start from top and fill clockwise
+                                    endAngle={-270}
                                 >
-                                    <Cell fill={remainingBudget >= 0 ? "#16a34a" : "#dc2626"} />
-                                    <Cell fill="rgba(255,255,255,0.1)" />
+                                    {totalCostUsed <= dailyBudget && <Cell fill="#16a34a" />}
+                                    {remainingBudget > 0 && <Cell fill="rgba(255,255,255,0.1)" />}
+                                    {overBudget > 0 && <Cell fill="#dc2626" />}
                                 </Pie>
                             </PieChart>
                         </ResponsiveContainer>
 
                         <div
-                            className={`text-center font-bold text-3xl ${remainingBudget >= 0 ? "text-green-700" : "text-red-700"}`}
+                            className={`text-center font-bold text-3xl ${
+                                remainingBudget >= 0 ? "text-green-700" : "text-red-700"
+                            }`}
                         >
                             {budgetStatusText}
                         </div>
 
                         <p className="text-center text-muted-foreground text-sm">
-                            {budgetValue}% of the budget is used · {budgetLabel}
+                            {totalCostUsed.toFixed(2)}$ of {dailyBudget}$ used · {budgetLabel}
                         </p>
                     </CardContent>
                 </Card>
