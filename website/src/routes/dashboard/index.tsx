@@ -69,90 +69,117 @@ function Dashboard() {
             {/* Budget & Chart */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
-                    <CardHeader>
-                        <CardTitle>Coût par utilisateur par commit</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={commits} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
-                                    <YAxis
-                                        stroke="rgba(255,255,255,0.5)"
-                                        tick={{ fontSize: 12 }}
-                                        tickFormatter={(value) => `${value.toFixed(2)}$`}
-                                        domain={[
-                                            "dataMin",
-                                            Math.max(
-                                                commits.reduce((acc, commit) => acc + commit.total.cost, 0),
-                                                commits.reduce((acc, commit) => acc + commit.total.calls, 0),
-                                            ),
-                                        ]}
-                                        allowDataOverflow
-                                    />
-                                    <Tooltip
-                                        formatter={(value: number | undefined, _name: string | undefined, payload) => {
-                                            switch (payload?.dataKey) {
-                                                case "total.cost":
-                                                    return [`${value?.toFixed(2)}$`, "Repo $/1M tokens"];
-                                                case "total.calls":
-                                                    return [value?.toString(), "Callsites"];
-                                                default:
-                                                    return undefined;
-                                            }
-                                        }}
-                                        contentStyle={{
-                                            backgroundColor: "#0f172a",
-                                            border: "1px solid rgba(255,255,255,0.1)",
-                                            borderRadius: "8px",
-                                            color: "white",
-                                        }}
-                                        labelStyle={{ color: "rgba(255,255,255,0.6)" }}
-                                    />
-                                    <defs>
-                                        <linearGradient id="fillCost" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.1} />
-                                        </linearGradient>
-                                        <linearGradient id="fillCalls" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0.1} />
-                                        </linearGradient>
-                                    </defs>
-                                    <Area
-                                        dataKey="total.cost"
-                                        type="monotone"
-                                        fill="url(#fillCost)"
-                                        fillOpacity={0.4}
-                                        stroke="var(--chart-1)"
-                                        stackId="a"
-                                    />
-                                    <Area
-                                        dataKey="total.calls"
-                                        type="monotone"
-                                        fill="url(#fillCalls)"
-                                        fillOpacity={0.4}
-                                        stroke="var(--chart-2)"
-                                        stackId="b"
-                                    />
+                    <CardContent className="space-y-8">
+                        <div>
+                            <h3 className="text-lg font-semibold mb-2">Cost per User per Commit</h3>
+                            {/* Cost Chart */}
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={commits} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                        <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
+                                        <YAxis
+                                            stroke="rgba(255,255,255,0.5)"
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) => `$${value.toFixed(2)}`}
+                                            domain={["dataMin", "dataMax"]}
+                                        />
+                                        <Tooltip
+                                            formatter={(
+                                                value: number | undefined,
+                                                name: string | undefined,
+                                                props,
+                                            ): [string, string] | null => {
+                                                if (value === undefined) return null;
+                                                return [`$${value.toFixed(2)}`, "Cost ($/1M tokens)"];
+                                            }}
+                                            contentStyle={{
+                                                backgroundColor: "#0f172a",
+                                                border: "1px solid rgba(255,255,255,0.1)",
+                                                borderRadius: "8px",
+                                                color: "white",
+                                            }}
+                                            labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                                        />
+                                        <defs>
+                                            <linearGradient id="fillCost" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.1} />
+                                            </linearGradient>
+                                        </defs>
+                                        <Area
+                                            dataKey="total.cost"
+                                            type="monotone"
+                                            fill="url(#fillCost)"
+                                            fillOpacity={0.4}
+                                            stroke="var(--chart-1)"
+                                        />
+                                        <Area
+                                            dataKey="limits.cost"
+                                            stroke="var(--destructive)"
+                                            fill="transparent"
+                                            strokeDasharray="5 5"
+                                            activeDot={{ r: 0 }}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
 
-                                    <Area
-                                        dataKey="limits.cost"
-                                        stroke="var(--destructive)"
-                                        fill="transparent"
-                                        strokeDasharray="5 5"
-                                        activeDot={{ r: 0 }}
-                                    />
-                                    <Area
-                                        dataKey="limits.calls"
-                                        stroke="var(--destructive)"
-                                        fill="transparent"
-                                        strokeDasharray="5 5"
-                                        activeDot={{ r: 0 }}
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                        {/* Calls Chart */}
+                        <div>
+                            <h3 className="text-lg font-semibold mb-2">Callsites per User per Commit</h3>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={commits} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                        <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
+                                        <YAxis
+                                            stroke="rgba(255,255,255,0.5)"
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) => value.toString()}
+                                            domain={["dataMin", "dataMax"]}
+                                        />
+                                        <Tooltip
+                                            formatter={(
+                                                value: number | undefined,
+                                                name: string | undefined,
+                                                props,
+                                            ): [string, string] | null => {
+                                                if (value === undefined) return null;
+                                                return [`${value.toString()}`, "Callsites"];
+                                            }}
+                                            contentStyle={{
+                                                backgroundColor: "#0f172a",
+                                                border: "1px solid rgba(255,255,255,0.1)",
+                                                borderRadius: "8px",
+                                                color: "white",
+                                            }}
+                                            labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                                        />
+                                        <defs>
+                                            <linearGradient id="fillCalls" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0.1} />
+                                            </linearGradient>
+                                        </defs>
+                                        <Area
+                                            dataKey="total.calls"
+                                            type="monotone"
+                                            fill="url(#fillCalls)"
+                                            fillOpacity={0.4}
+                                            stroke="var(--chart-2)"
+                                        />
+                                        <Area
+                                            dataKey="limits.calls"
+                                            stroke="var(--destructive)"
+                                            fill="transparent"
+                                            strokeDasharray="5 5"
+                                            activeDot={{ r: 0 }}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
