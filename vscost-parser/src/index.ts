@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import ts from "typescript";
+import prices_llm from "../assets/prices_llm.ts";
 import type { AnalysisResult, FileAnalysisResult, FunctionInfo, LLMCall, LoopInfo } from "./types.js";
 
 export type {
@@ -14,25 +15,8 @@ export type {
 
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
-let pricesData: { data: any[] } | null = null;
-
-export function setPricesPath(pricesPath: string): void {
-    pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
-}
-
-function loadPrices(): { data: any[] } {
-    if (!pricesData) {
-        // Default path for CLI usage
-        const dir = import.meta.dirname ?? process.cwd();
-        const pricesPath = path.join(dir, "assets/prices_llm.json");
-        pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
-    }
-    return pricesData!;
-}
-
 function get_model_object(model_name: string): any | null {
-    const prices = loadPrices();
-    for (const entry of prices.data) {
+    for (const entry of prices_llm.data) {
         if (entry.id.split("/").pop()! === model_name) {
             return entry;
         }

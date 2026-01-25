@@ -1,4 +1,4 @@
-{
+export default {
     "data": [
         {
             "id": "minimax/minimax-m2-her",
