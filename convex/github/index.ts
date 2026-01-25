@@ -168,6 +168,9 @@ export const verify_pr = workflow.define({
                 withinLimits
                     ? "✅ This pull request is within the configured limits."
                 : "⚠️ This pull request exceeds at least one configured limit.",
+                "",
+                `LLM Calls : ${total.calls}, Limit : ${limits.calls}`,
+                        `Estimated Cost : ${total.cost}, Limit : ${limits.calls}`,
               "",
               expensiveFilesSummary
             ].join("\n");

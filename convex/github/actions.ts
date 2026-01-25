@@ -129,8 +129,9 @@ export const completeCommitCheck = action({
                 output: {
                     title: args.success ? "✅ This commit keeps the project within the configured limits."
                     : "⚠️ This commit makes the project exceed at least one configured limit.",
-                  summary: [`Estimated Calls : ${args.estimated_calls}, Limit : ${args.limit_calls}`,
-                          `Estimated Calls : ${args.estimated_cost}, Limit : ${args.limit_cost}`,
+                  summary: [`LLM Calls : ${args.estimated_calls}, Limit : ${args.limit_calls}`,
+                    `Estimated Cost : ${args.estimated_cost}, Limit : ${args.limit_cost}`,
+                          "",
                           args.summary,
                           "",
                           "Done with automated review.",
