@@ -181,7 +181,8 @@ export const get_main_commits_with_code = action({
             });
 
             const existant_commits: string[] =
-                (await ctx.runQuery(api.repositories.complete_commits_query, { repo: args.repo })) ?? [];
+                (await ctx.runQuery(api.repositories.complete_commits_query, { owner: args.owner, repo: args.repo })) ??
+                [];
 
             // 2️⃣ For each commit, fetch changed files + code
             const results = await Promise.all(
