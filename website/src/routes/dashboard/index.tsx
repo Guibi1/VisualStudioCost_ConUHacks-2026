@@ -30,10 +30,10 @@ const progressColorClass =
     : "[&>div]:bg-blue-600";
 
 const commitData = [
-    { date: "2026-01-01", repo: 50, repo2: 30 },
-    { date: "2026-01-02", repo: 80, repo2: 40 },
-    { date: "2026-01-03", repo: 60, repo2: 50 },
-    { date: "2026-01-04", repo: 90, repo2: 70 },
+        { date: "2026-01-01", repo: 24.87, repo2: 19.42 },
+        { date: "2026-01-02", repo: 27.13, repo2: 21.05 },
+        { date: "2026-01-03", repo: 25.64, repo2: 22.31 },
+        { date: "2026-01-04", repo: 28.02, repo2: 23.88 },
 ]; //TODO remplacer data exemple chatgpt en connectant avec emil
 
 function Dashboard() {
@@ -50,23 +50,25 @@ function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={commitData} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis
-                    dataKey="date"
-                    stroke="rgba(255,255,255,0.5)"
-                    tick={{ fontSize: 12 }}
+                    <XAxis
+                        dataKey="date"
+                        stroke="rgba(255,255,255,0.5)"
+                        tick={{ fontSize: 12 }}
                     />
                     <YAxis
-                    stroke="rgba(255,255,255,0.5)"
-                    tick={{ fontSize: 12 }}
+                        stroke="rgba(255,255,255,0.5)"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => `${value.toFixed(2)}$`}
                     />
                     <Tooltip
-                    contentStyle={{
-                        backgroundColor: "#0f172a",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: "8px",
-                        color: "white",
-                    }}
-                    labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                        formatter={(value: number) => `${value.toFixed(2)}$`}
+                        contentStyle={{
+                            backgroundColor: "#0f172a",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "8px",
+                            color: "white",
+                        }}
+                        labelStyle={{ color: "rgba(255,255,255,0.6)" }}
                     />
                     <Line
                         type="monotone"
