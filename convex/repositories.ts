@@ -24,6 +24,12 @@ export const addCommit = mutation({
         analysis: v.string(),
     },
     handler: async (ctx, args) => {
-        return await ctx.db.insert("commits", args);
+        const repository = await ctx.db
+            .query("repositories")
+            .withIndex("by_name", (q) => q.eq("owner", args.owner).eq("repo", args.repo))
+            .first();
+        if (!repository) return null;
+        await ctx.db.insert("commits", args);
+        await ctx.db.patch("repositories", repository._id, { latest: args.commit_hash });
     },
 });
