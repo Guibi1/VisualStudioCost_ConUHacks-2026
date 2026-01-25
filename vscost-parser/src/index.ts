@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import ts from "typescript";
 import prices_llm from "../assets/prices_llm.ts";
 import type { AnalysisResult, FileAnalysisResult, FunctionInfo, LLMCall, LoopInfo } from "./types.js";
@@ -23,14 +22,8 @@ export function setPricesPath(pricesPath: string): void {
 
 function loadPrices(): { data: any[] } {
     if (!pricesData) {
-        try {
-            const dir = import.meta.dirname ?? process.cwd();
-            const pricesPath = path.join(dir, "assets/prices_llm.json");
-            pricesData = JSON.parse(fs.readFileSync(pricesPath, "utf-8"));
-        } catch {
-            // Fallback to bundled prices when JSON asset is not available
-            pricesData = prices_llm as { data: any[] };
-        }
+        // Default to bundled TypeScript asset
+        pricesData = prices_llm as { data: any[] };
     }
     return pricesData!;
 }
