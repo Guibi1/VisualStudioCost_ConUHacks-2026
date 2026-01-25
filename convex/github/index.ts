@@ -70,10 +70,10 @@ export const verify_pr = workflow.define({
                     },
                     files: commit.files.map((file) => ({
                         filename: file?.filename ?? "empty",
-                        patch: file?.patch,
-                        additions: file?.additions,
-                        deletions: file?.deletions,
-                        content: file?.content,
+                        patch: file?.patch ?? "",
+                        additions: file?.additions ?? 0,
+                        deletions: file?.deletions ?? 0,
+                        content: file?.content ?? "",
                     })),
                 });
             }),
