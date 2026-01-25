@@ -21,7 +21,7 @@
                 {
                     "id": "vscost",
                     "title": "VSCost",
-                    "icon": "assets/vscost-tab-light.svg"
+                    "icon": "assets/logo_white.png"
                 }
             ]
         },
@@ -30,7 +30,7 @@
                 {
                     "id": "vscost.sidebar",
                     "name": "Cost Overview",
-                    "icon": "assets/vscost-tab-light.svg"
+                    "icon": "assets/logo_white.png"
                 },
                 {
                     "id": "vscost.diagnostics",
