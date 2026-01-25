@@ -93,10 +93,10 @@ export const verify_pr = workflow.define({
               calls.forEach(call => {
                 fnAcc.cost += call?.cost_per_1M_tokens ?? 0;
 
-                if (call?.position?.row != null && call?.position?.col != null) {
+                if (call?.position?.line != null && call?.position?.column != null) {
                   fnAcc.positions.push({
-                    row: call.position.row,
-                    col: call.position.col,
+                    row: call.position.line,
+                    col: call.position.column,
                   });
                 }
               });
@@ -168,6 +168,9 @@ export const verify_pr = workflow.define({
                 withinLimits
                     ? "✅ This pull request is within the configured limits."
                 : "⚠️ This pull request exceeds at least one configured limit.",
+                "",
+                `LLM Calls : ${total.calls}, Limit : ${limits.calls}`,
+                        `Estimated Cost : ${total.cost}, Limit : ${limits.calls}`,
               "",
               expensiveFilesSummary
             ].join("\n");
