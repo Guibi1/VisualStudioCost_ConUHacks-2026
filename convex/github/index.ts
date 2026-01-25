@@ -117,14 +117,14 @@ export const verify_pr = workflow.define({
                                         .slice(0, 5) // limit to first 5 positions
                                         .map((pos) => {
                                             const url = `https://github.com/${args.owner}/${args.repo}/blob/${commit_hash}/${file.filename}#L${pos.row}`;
-                                            return `[L${pos.row}:C${pos.col}](${url})`;
+                                            return `[L${pos.row}](${url})`;
                                         })
                                         .join(", ")
                                   : "N/A";
 
                           return (
                               `${index + 1}. **${file.filename}**\n` +
-                              `   - Cost: **${file.cost}**\n` +
+                              `   - Cost: **${file.cost.toFixed(2)}$**\n` +
                               `   - Positions: ${positions}`
                           );
                       }),
