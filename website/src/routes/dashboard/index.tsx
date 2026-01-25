@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-//import * as React from "react";
-//import { Button } from "@/components/ui/button";
-//import { Alert } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
@@ -23,19 +26,11 @@ const budgetLabel =
     budgetValue < niveauWarning ? "Respecte le budget" : budgetValue < 100 ? "Attention" : "Budget dépassé!";
 
 const progressColorClass =
-<<<<<<< HEAD
   budgetValue > 100
     ? "[&>div]:bg-red-600"
     : budgetValue >= niveauWarning
     ? "[&>div]:bg-yellow-500"
     : "[&>div]:bg-blue-600";
-=======
-    budgetValue > 100
-        ? "[&_[data-slot=indicator]]:bg-red-600"
-        : budgetValue >= niveauWarning
-          ? "[&_[data-slot=indicator]]:bg-yellow-500"
-          : "[&_[data-slot=indicator]]:bg-blue-600";
->>>>>>> 12f029a6f83da78e4fa1d0e0141d2004c505e590
 
 const commitData = [
     { date: "2026-01-01", repo: 50, repo2: 30 },
@@ -46,62 +41,83 @@ const commitData = [
 
 function Dashboard() {
     return (
-<<<<<<< HEAD
-        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 bg-black">
+    <div className="space-y-6 p-6 bg-black text-white">
+      {/* Budget & Chart */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Coût par utilisateur par commit</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={commitData} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" stroke="white" />
+                  <YAxis stroke="white" />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="repo" stroke="#3b82f6" name="Repo $/commit" />
+                  <Line type="monotone" dataKey="repo2" stroke="#10b981" name="Repo2 $/commit" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-=======
-        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
->>>>>>> 12f029a6f83da78e4fa1d0e0141d2004c505e590
-            <Card>
-                <CardHeader>
-                    <CardTitle>Coût par utilisateur par commit</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={commitData} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="repo" stroke="#3b82f6" name="Repo $/commit" />
-                                <Line type="monotone" dataKey="repo2" stroke="#10b981" name="Repo2 $/commit" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
-            </Card>
+        <Card className="bg-card text-card-foreground">
+          <CardHeader>
+            <CardTitle>Utilisation budget</CardTitle>
+          </CardHeader>
+          <CardContent className="grid h-full grid-rows-[1fr_auto_auto] gap-3">
+            <div
+              className={`flex items-center justify-center text-center text-3xl font-bold ${
+                remainingBudget >= 0 ? "text-green-700" : "text-red-700"
+              }`}
+            >
+              {budgetStatusText}
+            </div>
 
-            <Card className="bg-card text-card-foreground">
-                <CardHeader>
-                    <CardTitle>Utilisation budget</CardTitle>
-                </CardHeader>
+            <Progress
+              value={Math.min(budgetValue, 100)}
+              className={`${progressColorClass} bg-[var(--background)] [&>div]:rounded-md`}
+            />
 
-                <CardContent className="grid h-full grid-rows-[1fr_auto_auto] gap-3">
-                    <div
-                        className={`flex items-center justify-center text-center text-3xl font-bold ${
-                            remainingBudget >= 0 ? "text-green-700" : "text-red-700"
-                        }`}
-                    >
-                        {budgetStatusText}
-                    </div>
+            <p className="text-sm text-muted-foreground text-center">
+              {budgetValue}% du budget est utilisé · {budgetLabel}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-                    {/* Progress bar */}
-<<<<<<< HEAD
-                    <Progress
-                    value={Math.min(budgetValue, 100)}
-                    className={`${progressColorClass} bg-[var(--background)] [&>div]:rounded-md`}
-                    />
-=======
-                    <Progress value={Math.min(budgetValue, 100)} className={progressColorClass} />
->>>>>>> 12f029a6f83da78e4fa1d0e0141d2004c505e590
+      {/* Tabs for Alerts */}
+      <Card className="bg-card text-card-foreground">
+        <CardHeader>
+          <CardTitle>Alerts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="deprecated" className="w-full">
+            <TabsList>
+              <TabsTrigger value="deprecated">Deprecated Models</TabsTrigger>
+              <TabsTrigger value="loop">Loops</TabsTrigger>
+              <TabsTrigger value="thinking">Thinking</TabsTrigger>
+              <TabsTrigger value="caching">Caching</TabsTrigger>
+            </TabsList>
 
-                    {/* Small status text */}
-                    <p className="text-sm text-muted-foreground text-center">
-                        {budgetValue}% du budget est utilisé · {budgetLabel}
-                    </p>
-                </CardContent>
-            </Card>
-        </div>
-    );
+            <TabsContent value="deprecated">
+              <p className="text-sm text-muted-foreground">No deprecated model alerts yet.</p>
+            </TabsContent>
+            <TabsContent value="loop">
+              <p className="text-sm text-muted-foreground">No loop alerts yet.</p>
+            </TabsContent>
+            <TabsContent value="thinking">
+              <p className="text-sm text-muted-foreground">No thinking alerts yet.</p>
+            </TabsContent>
+            <TabsContent value="caching">
+              <p className="text-sm text-muted-foreground">No caching alerts yet.</p>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
