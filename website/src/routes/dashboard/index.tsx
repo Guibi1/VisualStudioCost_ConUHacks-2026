@@ -1,17 +1,37 @@
+import { LoaderCircle } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { useMemo } from "react";
-import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useMemo, useState } from "react";
+import {
+    Area,
+    AreaChart,
+    CartesianGrid,
+    Cell,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
 import { api } from "vscost-convex/_generated/api";
 import { aggregateCostsCalls } from "vscost-convex/github";
 import type { AnalysisResult } from "vscost-parser";
 import { useRepo } from "@/components/RepoProvider";
-import SettingsDialog from "@/components/SettingsDialog";
-import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Code } from "@/components/ui/code";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    SidebarContent,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarProvider,
+} from "@/components/ui/sidebar";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
@@ -60,9 +80,31 @@ function Dashboard() {
                 : [],
         [rawCommits, repo],
     );
+    const fullCommits = useQuery(
+        api.repositories.complete_commits_query,
+        repo?.latest ? { owner: repo.owner, repo: repo.repo } : "skip",
+    );
+    const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const selectedCommitFull = useMemo(() => {
+        const fc = fullCommits?.find((c) => c.sha === selectedCommit) ?? fullCommits?.[1];
 
-    if (!repo || !commits) return null;
-    console.log(commits);
+        if (!fc) return null;
+        return {
+            ...fc,
+            analysis: commits.find((cc) => cc.commit_hash === fc.sha)?.analysis,
+        };
+    }, [selectedCommit, fullCommits, commits]);
+    const selectedFileFull = useMemo(
+        () => ({
+            ...selectedCommitFull?.files.find((f) => f.filename === selectedFile),
+            analysis: selectedCommitFull?.analysis?.files.find((f) => f.file_path === selectedFile),
+        }),
+        [selectedCommitFull, selectedFile],
+    );
+
+    if (!repo || !commits || !fullCommits) return null;
+    console.log(selectedCommitFull);
 
     return (
         <div className="space-y-8 bg-linear-to-br from-neutral-950 via-neutral-900 to-neutral-950 p-8 text-white">
@@ -71,7 +113,7 @@ function Dashboard() {
                 <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
                     <CardContent className="space-y-8">
                         <div>
-                            <h3 className="text-lg font-semibold mb-2">Cost per User per Commit</h3>
+                            <h3 className="mb-2 font-semibold text-lg">Cost per User per Commit</h3>
                             {/* Cost Chart */}
                             <div className="h-64">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -128,7 +170,7 @@ function Dashboard() {
 
                         {/* Calls Chart */}
                         <div>
-                            <h3 className="text-lg font-semibold mb-2">Callsites per User per Commit</h3>
+                            <h3 className="mb-2 font-semibold text-lg">Callsites per User per Commit</h3>
                             <div className="h-64">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={commits} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
@@ -185,135 +227,117 @@ function Dashboard() {
                 </Card>
 
                 <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
-
-                      <CardHeader>
+                    <CardHeader>
                         <CardTitle>Budget Usage</CardTitle>
-                      </CardHeader>
-                      <CardContent className="flex flex-col items-center justify-center gap-4 h-64">
+                    </CardHeader>
+                    <CardContent className="flex h-64 flex-col items-center justify-center gap-4">
                         <ResponsiveContainer width={200} height={200}>
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "Used", value: budgetValue },
-                                { name: "Remaining", value: Math.max(100 - budgetValue, 0) },
-                              ]}
-                              dataKey="value"
-                              nameKey="name"
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={80}
-                              paddingAngle={2}
-                              startAngle={90}
-                              endAngle={-270} // makes the chart start from top and fill clockwise
-                            >
-                              <Cell fill={remainingBudget >= 0 ? "#16a34a" : "#dc2626"} />
-                              <Cell fill="rgba(255,255,255,0.1)" />
-                            </Pie>
-                          </PieChart>
+                            <PieChart>
+                                <Pie
+                                    data={[
+                                        { name: "Used", value: budgetValue },
+                                        { name: "Remaining", value: Math.max(100 - budgetValue, 0) },
+                                    ]}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={2}
+                                    startAngle={90}
+                                    endAngle={-270} // makes the chart start from top and fill clockwise
+                                >
+                                    <Cell fill={remainingBudget >= 0 ? "#16a34a" : "#dc2626"} />
+                                    <Cell fill="rgba(255,255,255,0.1)" />
+                                </Pie>
+                            </PieChart>
                         </ResponsiveContainer>
 
-                        <div className={`text-center font-bold text-3xl ${remainingBudget >= 0 ? "text-green-700" : "text-red-700"}`}>
-                          {budgetStatusText}
+                        <div
+                            className={`text-center font-bold text-3xl ${remainingBudget >= 0 ? "text-green-700" : "text-red-700"}`}
+                        >
+                            {budgetStatusText}
                         </div>
 
                         <p className="text-center text-muted-foreground text-sm">
-                          {budgetValue}% of the budget is used · {budgetLabel}
+                            {budgetValue}% of the budget is used · {budgetLabel}
                         </p>
-                      </CardContent>
+                    </CardContent>
                 </Card>
             </div>
 
             {/* Tabs for Alerts */}
             <Card className="bg-card text-card-foreground">
                 <CardHeader>
-                    <CardTitle>Alerts</CardTitle>
+                    <CardTitle>AI usage par commit</CardTitle>
+                    <CardAction>
+                        <Select value={selectedCommit} onValueChange={(v) => setSelectedCommit(v)}>
+                            <SelectTrigger className="w-full min-w-3xs">
+                                {selectedCommitFull ? (
+                                    <SelectValue>{selectedCommitFull.sha}</SelectValue>
+                                ) : (
+                                    <SelectValue placeholder="Select a commit" />
+                                )}
+                            </SelectTrigger>
+
+                            <SelectContent>
+                                {fullCommits ? (
+                                    fullCommits.map((commit) => (
+                                        <SelectItem key={commit.sha} value={commit.sha}>
+                                            {commit.sha}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <div className="grid size-full place-items-center">
+                                        <HugeiconsIcon icon={LoaderCircle} className="animate-spin" />
+                                    </div>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </CardAction>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="deprecated" className="space-y-4">
-                        <TabsList>
-                            <TabsTrigger value="deprecated">Alerte de deprecated model</TabsTrigger>
-                            <TabsTrigger value="loop">Alerte de loop</TabsTrigger>
-                            <TabsTrigger value="thinking">Alerte de thinking</TabsTrigger>
-                            <TabsTrigger value="caching">Alerte de caching</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="deprecated">
-                            <div className="space-y-3">
-                                <Item variant="outline">
-                                    <ItemContent>
-                                        <ItemTitle>Deprecated AI Model</ItemTitle>
-                                        <ItemDescription>
-                                            Commit uses an outdated AI model. Upgrade recommended.
-                                        </ItemDescription>
-                                    </ItemContent>
-
-                                    <ItemActions>
-                                        <Button variant="outline" size="sm">
-                                            View commit
-                                        </Button>
-                                    </ItemActions>
-                                </Item>
+                    {selectedCommitFull && (
+                        <div className="flex max-h-120">
+                            <div className="w-40">
+                                <SidebarProvider>
+                                    <SidebarContent>
+                                        <SidebarGroup>
+                                            <SidebarGroupLabel>Files</SidebarGroupLabel>
+                                            <SidebarGroupContent>
+                                                <SidebarMenu>
+                                                    {selectedCommitFull.analysis?.files.map((file) => (
+                                                        <SidebarMenuItem key={file.file_path}>
+                                                            <SidebarMenuButton
+                                                                onClick={() => setSelectedFile(file.file_path)}
+                                                            >
+                                                                {file.file_path}
+                                                            </SidebarMenuButton>
+                                                        </SidebarMenuItem>
+                                                    ))}
+                                                </SidebarMenu>
+                                            </SidebarGroupContent>
+                                        </SidebarGroup>
+                                    </SidebarContent>
+                                </SidebarProvider>
                             </div>
-                        </TabsContent>
 
-                        <TabsContent value="loop">
-                            <div className="space-y-3">
-                                <Item variant="outline">
-                                    <ItemContent>
-                                        <ItemTitle>Loop problem</ItemTitle>
-                                        <ItemDescription>
-                                            Repeated execution detected without state change.
-                                        </ItemDescription>
-                                    </ItemContent>
-
-                                    <ItemActions>
-                                        <Button variant="outline" size="sm">
-                                            Inspect
-                                        </Button>
-                                    </ItemActions>
-                                </Item>
+                            <div className="min-h-0 flex-1 gap-4 overflow-y-scroll">
+                                {selectedFileFull.content && (
+                                    <Code
+                                        code={selectedFileFull.content}
+                                        language="tsx"
+                                        lines={
+                                            selectedFileFull.analysis?.call_sites.map(
+                                                (callSite) => callSite.position.line,
+                                            ) ?? []
+                                        }
+                                    />
+                                )}
                             </div>
-                        </TabsContent>
-
-                        <TabsContent value="thinking">
-                            <div className="space-y-3">
-                                <Item variant="outline">
-                                    <ItemContent>
-                                        <ItemTitle>Thinking problem</ItemTitle>
-                                        <ItemDescription>
-                                            Model spent unusually long in reasoning phase.
-                                        </ItemDescription>
-                                    </ItemContent>
-
-                                    <ItemActions>
-                                        <Button variant="outline" size="sm">
-                                            Details
-                                        </Button>
-                                    </ItemActions>
-                                </Item>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="caching">
-                            <div className="space-y-3">
-                                <Item variant="outline">
-                                    <ItemContent>
-                                        <ItemTitle>Cache Opportunity</ItemTitle>
-                                        <ItemDescription>
-                                            Similar requests detected. Caching could reduce cost.
-                                        </ItemDescription>
-                                    </ItemContent>
-
-                                    <ItemActions>
-                                        <Button variant="outline" size="sm">
-                                            Enable cache
-                                        </Button>
-                                    </ItemActions>
-                                </Item>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
