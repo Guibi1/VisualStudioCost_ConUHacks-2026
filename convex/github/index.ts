@@ -87,41 +87,12 @@ export const verify_pr = workflow.define({
                             }
                         });
 
-              return fnAcc;
-            },
-            {
-              cost: 0,
-              positions: [] as { row: number; col: number }[],
-            },
-          );
-
-          return {
-            filename: file.file_path ?? "unknown",
-            cost: acc.cost,
-            positions: acc.positions,
-          };
-        })
-        .filter(file => file.cost > 0)
-        .sort((a, b) => b.cost - a.cost)
-        .slice(0, 3);
-
-      const expensiveFilesSummary =
-        top3Files.length > 0
-          ? [
-              "### 💸 Most expensive files",
-              "",
-              ...top3Files.map((file, index) => {
-                const positions =
-                  file.positions.length > 0
-                    ? file.positions
-                        .map(pos => `line ${pos.row}`)
-                        .join(", ")
-                    : "N/A";
-
-                return (
-                  `${index + 1}. **${file.filename}**\n` +
-                  `   - Cost: **${file.cost}**\n` +
-                  `   - Positions: ${positions}`
+                        return fnAcc;
+                    },
+                    {
+                        cost: 0,
+                        positions: [] as { row: number; col: number }[],
+                    },
                 );
 
                 return {
@@ -142,7 +113,7 @@ export const verify_pr = workflow.define({
                       ...top3Files.map((file, index) => {
                           const positions =
                               file.positions.length > 0
-                                  ? file.positions.map((pos) => `(${pos.row}, ${pos.col})`).join(", ")
+                                  ? file.positions.map((pos) => `line ${pos.row}`).join(", ")
                                   : "N/A";
 
                           return (
@@ -179,9 +150,9 @@ export const verify_pr = workflow.define({
                 "",
                 withinLimits
                     ? "✅ This pull request is within the configured limits."
-                : "⚠️ This pull request exceeds at least one configured limit.",
-              "",
-              expensiveFilesSummary
+                    : "⚠️ This pull request exceeds at least one configured limit.",
+                "",
+                expensiveFilesSummary,
             ].join("\n");
 
             await ctx.runAction(api.github.actions.comment_pr, {
