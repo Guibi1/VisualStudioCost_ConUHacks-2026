@@ -25,7 +25,22 @@ export const getUserRepos = query({
         return await ctx.db
             .query("repositories")
             .withIndex("by_owner", (q) => q.eq("owner", user.username))
+            .filter((q) => q.eq(q.field("enabled"), true))
             .collect();
+    },
+});
+
+export const getCommit = query({
+    args: {
+        hash: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user) return null;
+        return await ctx.db
+            .query("commits")
+            .withIndex("by_hash", (q) => q.eq("commit_hash", args.hash))
+            .unique();
     },
 });
 

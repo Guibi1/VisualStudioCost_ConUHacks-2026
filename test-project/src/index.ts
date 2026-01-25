@@ -6,10 +6,7 @@ async function greetUser() {
 
     const response = openRouter.chat.send({
         model: "google/gemini-2.5-flash",
-        messages: [
-            { role: "system", content: "You are a helpful assistant." },
-            { role: "user", content: prompt },
-        ],
+        messages: [{ role: "system", content: "You are a helpful assistant." }],
     });
     console.log(response);
 }

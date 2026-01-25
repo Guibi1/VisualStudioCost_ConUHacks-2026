@@ -1,10 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { useRepo } from "@/components/RepoProvider";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
+import { useMemo } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { api } from "vscost-convex/_generated/api";
+import { type AnalysisResult } from "vscost-parser";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
@@ -38,6 +43,12 @@ const commitData = [
 ]; //TODO remplacer data exemple chatgpt en connectant avec emil
 
 function Dashboard() {
+    const [repo] = useRepo();
+    const commit = useQuery(api.repositories.getCommit, repo?.latest ? { hash: repo.latest } : "skip");
+    const analysis: AnalysisResult = useMemo(() => (commit ? JSON.parse(commit.analysis) : null), [commit]);
+
+    if (!repo || !commit || !analysis) return null;
+
     return (
         <div className="space-y-8 p-8 bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-white">
             {/* Budget & Chart */}
