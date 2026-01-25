@@ -1,7 +1,10 @@
 {
     "name": "vscost-parser",
-    "module": "index.ts",
+    "module": "./src/index.ts",
     "type": "module",
+    "exports": {
+        ".": "./src/index.ts"
+    },
     "dependencies": {
         "typescript": "^5.9.3"
     },

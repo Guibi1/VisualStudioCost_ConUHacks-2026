@@ -9,8 +9,11 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as github_actions from "../github/actions.js";
+import type * as github_index from "../github/index.js";
 import type * as http from "../http.js";
 import type * as index from "../index.js";
+import type * as repositories from "../repositories.js";
 
 import type {
   ApiFromModules,
@@ -20,8 +23,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "github/actions": typeof github_actions;
+  "github/index": typeof github_index;
   http: typeof http;
   index: typeof index;
+  repositories: typeof repositories;
 }>;
 
 /**

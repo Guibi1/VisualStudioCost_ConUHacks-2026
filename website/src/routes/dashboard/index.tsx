@@ -9,26 +9,33 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
 const budgetValue = 105; //TODO remplacer exemple chatgpt
-const niveauWarning = 90;  // % pour afficher le budget en jaune
+const niveauWarning = 90; // % pour afficher le budget en jaune
 
-const dailyBudget = 100; //TODO remplacer exemple chatgpt 
+const dailyBudget = 100; //TODO remplacer exemple chatgpt
 const usedBudget = (budgetValue / 100) * dailyBudget;
 const remainingBudget = dailyBudget - usedBudget;
-const budgetStatusText = remainingBudget >= 0
-    ? `${remainingBudget.toFixed(2)}$ restant aujourd'hui`
-    : `${Math.abs(remainingBudget).toFixed(2)}$ de dépassement aujourd'hui`;
+const budgetStatusText =
+    remainingBudget >= 0
+        ? `${remainingBudget.toFixed(2)}$ restant aujourd'hui`
+        : `${Math.abs(remainingBudget).toFixed(2)}$ de dépassement aujourd'hui`;
 
 const budgetLabel =
-  budgetValue < niveauWarning ? "Respecte le budget"
-  : budgetValue < 100 ? "Attention"
-  : "Budget dépassé!";
+    budgetValue < niveauWarning ? "Respecte le budget" : budgetValue < 100 ? "Attention" : "Budget dépassé!";
 
 const progressColorClass =
+<<<<<<< HEAD
   budgetValue > 100
     ? "[&>div]:bg-red-600"
     : budgetValue >= niveauWarning
     ? "[&>div]:bg-yellow-500"
     : "[&>div]:bg-blue-600";
+=======
+    budgetValue > 100
+        ? "[&_[data-slot=indicator]]:bg-red-600"
+        : budgetValue >= niveauWarning
+          ? "[&_[data-slot=indicator]]:bg-yellow-500"
+          : "[&_[data-slot=indicator]]:bg-blue-600";
+>>>>>>> 12f029a6f83da78e4fa1d0e0141d2004c505e590
 
 const commitData = [
     { date: "2026-01-01", repo: 50, repo2: 30 },
@@ -39,8 +46,12 @@ const commitData = [
 
 function Dashboard() {
     return (
+<<<<<<< HEAD
         <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 bg-black">
 
+=======
+        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
+>>>>>>> 12f029a6f83da78e4fa1d0e0141d2004c505e590
             <Card>
                 <CardHeader>
                     <CardTitle>Coût par utilisateur par commit</CardTitle>
@@ -69,23 +80,27 @@ function Dashboard() {
                 <CardContent className="grid h-full grid-rows-[1fr_auto_auto] gap-3">
                     <div
                         className={`flex items-center justify-center text-center text-3xl font-bold ${
-                        remainingBudget >= 0 ? "text-green-700" : "text-red-700"
+                            remainingBudget >= 0 ? "text-green-700" : "text-red-700"
                         }`}
                     >
                         {budgetStatusText}
                     </div>
 
                     {/* Progress bar */}
+<<<<<<< HEAD
                     <Progress
                     value={Math.min(budgetValue, 100)}
                     className={`${progressColorClass} bg-[var(--background)] [&>div]:rounded-md`}
                     />
+=======
+                    <Progress value={Math.min(budgetValue, 100)} className={progressColorClass} />
+>>>>>>> 12f029a6f83da78e4fa1d0e0141d2004c505e590
 
                     {/* Small status text */}
                     <p className="text-sm text-muted-foreground text-center">
                         {budgetValue}% du budget est utilisé · {budgetLabel}
                     </p>
-                    </CardContent>
+                </CardContent>
             </Card>
         </div>
     );
