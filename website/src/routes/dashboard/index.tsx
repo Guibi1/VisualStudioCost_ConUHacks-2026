@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useMemo } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "vscost-convex/_generated/api";
 import { aggregateCostsCalls } from "vscost-convex/github";
 import type { AnalysisResult } from "vscost-parser";
@@ -192,24 +192,44 @@ function Dashboard() {
                         </CardAction>
                     </CardHeader>
 
-                    <CardContent className="grid h-full grid-rows-[1fr_auto_auto] gap-3">
-                        <div
-                            className={`flex items-center justify-center text-center font-bold text-3xl ${
-                                remainingBudget >= 0 ? "text-green-700" : "text-red-700"
-                            }`}
-                        >
-                            {budgetStatusText}
+                    <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
+                      <CardHeader>
+                        <CardTitle>Budget Usage</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex flex-col items-center justify-center gap-4 h-64">
+                        <ResponsiveContainer width={200} height={200}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "Used", value: budgetValue },
+                                { name: "Remaining", value: Math.max(100 - budgetValue, 0) },
+                              ]}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={2}
+                              startAngle={90}
+                              endAngle={-270} // makes the chart start from top and fill clockwise
+                            >
+                              <Cell fill={remainingBudget >= 0 ? "#16a34a" : "#dc2626"} />
+                              <Cell fill="rgba(255,255,255,0.1)" />
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+
+                        <div className={`text-center font-bold text-3xl ${remainingBudget >= 0 ? "text-green-700" : "text-red-700"}`}>
+                          {budgetStatusText}
                         </div>
 
-                        <Progress
-                            value={Math.min(budgetValue, 100)}
-                            className={`${progressColorClass} bg-background [&>div]:rounded-md`}
-                        />
-
                         <p className="text-center text-muted-foreground text-sm">
-                            {budgetValue}% du budget est utilisé · {budgetLabel}
+                          {budgetValue}% of the budget is used · {budgetLabel}
                         </p>
-                    </CardContent>
+                      </CardContent>
+                    </Card>
+
                 </Card>
             </div>
 
