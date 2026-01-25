@@ -1,5 +1,6 @@
 "use node";
 
+import { createAppAuth } from "@octokit/auth-app";
 import { v } from "convex/values";
 import JSZip from "jszip";
 import { Octokit } from "octokit";
@@ -8,7 +9,10 @@ import { action } from "../_generated/server";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
-const oktobaby = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const oktobaby = new Octokit({
+    authStrategy: createAppAuth,
+    auth: { appId: process.env.GITHUB_APP_ID, privateKey: process.env.GITHUB_PRIVATE_KEY },
+});
 
 export const analyzeRepoFiles = action({
     args: {
