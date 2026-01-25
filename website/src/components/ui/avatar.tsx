@@ -1,5 +1,6 @@
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
 import type * as React from "react";
+import { Doc } from "vscost-convex/_generated/dataModel";
 
 import { cn } from "@/lib/utils";
 
@@ -88,4 +89,13 @@ function AvatarGroupCount({ className, ...props }: React.ComponentProps<"div">) 
     );
 }
 
-export { Avatar, AvatarImage, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarBadge };
+function UserAvatar({ user }: { user: Doc<"users"> }) {
+    return (
+        <Avatar>
+            <AvatarImage src={user.image} alt={user.name} />
+            <AvatarFallback>{user.name[0].toUpperCase()}</AvatarFallback>
+        </Avatar>
+    );
+}
+
+export { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, UserAvatar };

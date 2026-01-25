@@ -1,6 +1,6 @@
 import { useRepo } from "@/components/RepoProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LoaderCircle, NodeAddIcon } from "@hugeicons/core-free-icons";
+import { LoaderCircle } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "convex/react";
 import { api } from "vscost-convex/_generated/api";
@@ -29,18 +29,6 @@ export default function SelectRepo() {
                                 {repo.owner}/{repo.repo}
                             </SelectItem>
                         ))}
-                        <SelectItem
-                            render={
-                                <a
-                                    href="https://github.com/apps/vs-cost/installations/select_target"
-                                    target="_blank"
-                                    rel="noopener"
-                                >
-                                    <HugeiconsIcon icon={NodeAddIcon} />
-                                    Manage repositories
-                                </a>
-                            }
-                        />
                     </>
                 ) : (
                     <div className="grid size-full place-items-center">

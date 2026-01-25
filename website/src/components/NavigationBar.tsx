@@ -1,13 +1,26 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { LoginSquare01Icon, LogoutSquare01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { useQuery } from "convex/react";
+import { api } from "vscost-convex/_generated/api";
+
+import SelectRepo from "@/components/SelectRepo";
+import { UserAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import SelectRepo from "./SelectRepo";
+import {
+    Popover,
+    PopoverContent,
+    PopoverDescription,
+    PopoverHeader,
+    PopoverTitle,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { LoginSquare01Icon, LogoutSquare01Icon, NodeAddIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Separator } from "./ui/separator";
 
 export default function NavigationBar() {
     const { signIn, signOut } = useAuthActions();
+    const user = useQuery(api.auth.currentUser);
 
     return (
         <>
@@ -16,22 +29,57 @@ export default function NavigationBar() {
                     <h1 className="font-bold text-2xl">VS Cost</h1>
                 </Link>
 
-                <div className="flex items-center gap-2">
-                    <Authenticated>
-                        <SelectRepo />
+                <div className="flex items-center gap-4">
+                    {user ? (
+                        <>
+                            <SelectRepo />
 
-                        <Button render={<Link to="/" />} nativeButton={false} onClick={() => signOut()}>
-                            Sign out
-                            <HugeiconsIcon icon={LogoutSquare01Icon} />
-                        </Button>
-                    </Authenticated>
+                            <Popover>
+                                <PopoverTrigger>
+                                    <UserAvatar user={user} />
+                                </PopoverTrigger>
 
-                    <Unauthenticated>
-                        <Button onClick={() => signIn("github")}>
-                            Login
-                            <HugeiconsIcon icon={LoginSquare01Icon} />
-                        </Button>
-                    </Unauthenticated>
+                                <PopoverContent>
+                                    <PopoverHeader>
+                                        <PopoverTitle>{user.name}</PopoverTitle>
+                                        <PopoverDescription>{user.email}</PopoverDescription>
+                                    </PopoverHeader>
+
+                                    <Button
+                                        variant="outline"
+                                        render={<Link to="/" />}
+                                        nativeButton={false}
+                                        onClick={() => signOut()}
+                                    >
+                                        Sign out
+                                        <HugeiconsIcon icon={LogoutSquare01Icon} />
+                                    </Button>
+
+                                    <Separator />
+
+                                    <Button
+                                        render={
+                                            <a
+                                                href="https://github.com/apps/vs-cost/installations/select_target"
+                                                target="_blank"
+                                                rel="noopener"
+                                            >
+                                                <HugeiconsIcon icon={NodeAddIcon} />
+                                                Manage repositories
+                                            </a>
+                                        }
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </>
+                    ) : (
+                        <>
+                            <Button onClick={() => signIn("github")}>
+                                Login
+                                <HugeiconsIcon icon={LoginSquare01Icon} />
+                            </Button>
+                        </>
+                    )}
                 </div>
             </div>
             <hr className="border-muted-foreground" />
