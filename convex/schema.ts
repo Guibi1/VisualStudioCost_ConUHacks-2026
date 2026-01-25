@@ -11,11 +11,16 @@ export default defineSchema({
         email: v.string(),
     }).index("by_email", ["email"]),
     repositories: defineTable({
-        name: v.string(),
-        latest: v.string(),
-    }),
-    commits: defineTable({
+        owner: v.string(),
         repo: v.string(),
-        cost: v.string(),
+        latest: v.string(),
+        costLimit: v.number(),
+        callsLimit: v.number(),
+    }).index("by_name", ["owner", "repo"]),
+    commits: defineTable({
+        owner: v.string(),
+        repo: v.string(),
+        commit_hash: v.string(),
+        analysis: v.string(),
     }).index("by_repo", ["repo"]),
 });
