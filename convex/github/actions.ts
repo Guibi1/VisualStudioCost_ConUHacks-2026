@@ -6,6 +6,7 @@ import JSZip from "jszip";
 import { Octokit } from "octokit";
 import { analyze_code } from "vscost-parser";
 import { action } from "../_generated/server";
+import { api } from "../_generated/api";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
@@ -170,26 +171,24 @@ export const get_main_commits_with_code = action({
 
             const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
 
-            // 1️⃣ List recent commits on main
-            const { data: commits } = await installationOctokit.rest.repos.listCommits({
-                owner: args.owner,
-                repo: args.repo,
-                sha: "main", // main branch
-                per_page: limit,
-            });
+      // 1️⃣ List recent commits on main
+      const { data: commits } = await installationOctokit.rest.repos.listCommits({
+        owner: args.owner,
+        repo: args.repo,
+        sha: "main", // main branch
+        per_page: limit,
+      });
 
-            // 2️⃣ For each commit, fetch changed files + code
-            const results = await Promise.all(
-                commits.map(async (commit) => {
-                    const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
-                        owner: args.owner,
-                        repo: args.repo,
-                        ref: commit.sha,
-                    });
+      const existant_commits: string[] = await ctx.runQuery(api.repositories.complete_commits_query, {repo: args.repo}) ?? [];
 
-                    const files = await Promise.all(
-                        (fullCommit.files ?? []).map(async (file) => {
-                            if (file.status === "removed") return null;
+      // 2️⃣ For each commit, fetch changed files + code
+      const results = await Promise.all(
+        commits.filter(commit => existant_commits.includes(commit.sha)).map(async (commit) => {
+          const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
+            owner: args.owner,
+            repo: args.repo,
+            ref: commit.sha,
+          });
 
                             try {
                                 const { data: content } = await installationOctokit.rest.repos.getContent({
