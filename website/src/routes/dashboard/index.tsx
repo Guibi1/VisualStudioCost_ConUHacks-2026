@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "vscost-convex/_generated/api";
-import type { AnalysisResult } from "vscost-parser";
+import { type AnalysisResult, aggregateCostsCalls } from "vscost-parser";
 import { useRepo } from "@/components/RepoProvider";
 import SettingsDialog from "@/components/SettingsDialog";
 import { Button } from "@/components/ui/button";
@@ -47,24 +47,7 @@ function Dashboard() {
             rawCommits
                 ? rawCommits.map((c) => {
                       const analysis = JSON.parse(c.analysis) as AnalysisResult;
-                      const total = analysis.files.reduce(
-                          (acc, file) => {
-                              const functions = Array.isArray(file?.functions) ? file.functions : [];
-                              const fileTotals = functions.reduce(
-                                  (fnAcc, fn) => {
-                                      const calls = Array.isArray(fn?.llm_calls) ? fn.llm_calls : [];
-                                      const cost = calls.reduce(
-                                          (callAcc, call) => callAcc + (call?.cost_per_1M_tokens ?? 0),
-                                          0,
-                                      );
-                                      return { cost: fnAcc.cost + cost, calls: fnAcc.calls + calls.length };
-                                  },
-                                  { cost: 0, calls: 0 },
-                              );
-                              return { cost: acc.cost + fileTotals.cost, calls: acc.calls + fileTotals.calls };
-                          },
-                          { cost: 0, calls: 0 },
-                      );
+                      const total = aggregateCostsCalls(analysis);
                       return {
                           ...c,
                           date: new Date(c.date).toDateString(),
