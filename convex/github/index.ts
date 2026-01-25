@@ -93,10 +93,10 @@ export const verify_pr = workflow.define({
               calls.forEach(call => {
                 fnAcc.cost += call?.cost_per_1M_tokens ?? 0;
 
-                if (call?.position?.row != null && call?.position?.col != null) {
+                if (call?.position?.line != null && call?.position?.column != null) {
                   fnAcc.positions.push({
-                    row: call.position.row,
-                    col: call.position.col,
+                    row: call.position.line,
+                    col: call.position.column,
                   });
                 }
               });
