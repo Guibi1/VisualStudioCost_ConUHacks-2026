@@ -10,14 +10,55 @@
         "Other"
     ],
     "activationEvents": [
-        "onStartupFinished"
+        "onStartupFinished",
+        "onCommand:vscost.openCostTab",
+        "onView:vscost.sidebar"
     ],
     "main": "./dist/extension.js",
     "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "vscost",
+                    "title": "VSCost",
+                    "icon": "assets/vscost-tab-light.svg"
+                }
+            ]
+        },
+        "views": {
+            "vscost": [
+                {
+                    "id": "vscost.sidebar",
+                    "name": "Cost Overview",
+                    "icon": "assets/vscost-tab-light.svg"
+                },
+                {
+                    "id": "vscost.diagnostics",
+                    "name": "Diagnostics"
+                },
+                {
+                    "id": "vscost.recommendations",
+                    "name": "Quick Picks",
+                    "type": "webview"
+                }
+            ]
+        },
         "commands": [
             {
                 "command": "vscost.helloWorld",
                 "title": "Hello World"
+            },
+            {
+                "command": "vscost.openCostTab",
+                "title": "VSCost: Open Cost Tab"
+            },
+            {
+                "command": "vscost.openLocation",
+                "title": "VSCost: Open Location"
+            },
+            {
+                "command": "vscost.ignoreThinking",
+                "title": "VSCost: Ignore Thinking Warning"
             }
         ]
     },

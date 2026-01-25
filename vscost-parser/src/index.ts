@@ -16,12 +16,13 @@ export type {
 const VALID_EXTENSIONS = [".ts", ".js", ".tsx", ".jsx"];
 
 function get_model_object(model_name: string): any | null {
-    for (const entry of prices_llm.data) {
-        if (entry.id.split("/").pop()! === model_name) {
-            return entry;
-        }
-    }
-    return null;
+    const prices = loadPrices();
+    // Prefer exact match (needed for ai.generateText which uses full ids like "google/gemini-2.5-pro")
+    const exact = prices.data.find((entry) => entry.id === model_name);
+    if (exact) return exact;
+
+    const shortName = model_name.split("/").pop();
+    return prices.data.find((entry) => entry.id.split("/").pop() === shortName) ?? null;
 }
 
 function isTargetCallee(callee: string): boolean {
@@ -29,6 +30,7 @@ function isTargetCallee(callee: string): boolean {
         callee === "openai.ChatCompletion.create" ||
         callee === "gemini.ChatCompletion.create" ||
         callee === "gemini.chat.completions.create" ||
+        callee === "ai.generateText"    ||
         callee === "anthropic.chat.completions.create" ||
         callee === "openRouter.chat.send"
     );

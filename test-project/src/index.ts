@@ -5,10 +5,10 @@ async function greetUser() {
     const openRouter = new OpenRouter();
 
     const response = openRouter.chat.send({
-        model: "gemini-2.0-flash-001",
+        model: "google/gemini-3-flash-preview",
         messages: [
             { role: "system", content: "You are a helpful assistant." },
-            { role: "user", content: "prompt" },
+            { role: "user", content: prompt },
         ],
     });
     console.log(response);
@@ -16,7 +16,7 @@ async function greetUser() {
 
 async function compareResponses(prompt: string) {
     const response_gpt_llm = await ai.generateText({
-        model: "openai/gpt-4.1",
+        model: "liquid/lfm-2.5-1.2b-thinking:free",
         prompt: [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: prompt },
@@ -25,7 +25,7 @@ async function compareResponses(prompt: string) {
     console.log(response_gpt_llm);
 
     const response_gemini_llm = await ai.generateText({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash-lite-preview-09-2025",
         prompt: [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: prompt },
@@ -44,7 +44,7 @@ async function agentMode(prompt: string) {
 
     for (let i = 0; i < 10; i++) {
         const response = await ai.generateText({
-            model: "google/gemini-2.5-pro",
+            model: "google/gemini-2.5-flash-lite-preview-09-2025",
             prompt: messages,
         });
 
