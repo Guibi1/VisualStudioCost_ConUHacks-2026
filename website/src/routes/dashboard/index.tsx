@@ -25,10 +25,10 @@ const budgetLabel =
 
 const progressColorClass =
   budgetValue > 100
-    ? "[&_[data-slot=indicator]]:bg-red-600"
+    ? "[&>div]:bg-red-600"
     : budgetValue >= niveauWarning
-    ? "[&_[data-slot=indicator]]:bg-yellow-500"
-    : "[&_[data-slot=indicator]]:bg-blue-600";
+    ? "[&>div]:bg-yellow-500"
+    : "[&>div]:bg-blue-600";
 
 const commitData = [
     { date: "2026-01-01", repo: 50, repo2: 30 },
@@ -39,7 +39,7 @@ const commitData = [
 
 function Dashboard() {
     return (
-        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 bg-black">
 
             <Card>
                 <CardHeader>
@@ -61,7 +61,7 @@ function Dashboard() {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card text-card-foreground">
                 <CardHeader>
                     <CardTitle>Utilisation budget</CardTitle>
                 </CardHeader>
@@ -78,7 +78,7 @@ function Dashboard() {
                     {/* Progress bar */}
                     <Progress
                     value={Math.min(budgetValue, 100)}
-                    className={progressColorClass}
+                    className={`${progressColorClass} bg-[var(--background)] [&>div]:rounded-md`}
                     />
 
                     {/* Small status text */}
