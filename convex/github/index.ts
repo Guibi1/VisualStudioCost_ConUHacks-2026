@@ -125,7 +125,7 @@ export const verify_pr = workflow.define({
                           return (
                               `${index + 1}. **${file.filename}**\n` +
                               `   - Cost: **${file.cost.toFixed(2)}$**\n` +
-                              `   - Positions: ${positions}`
+                              `   - Lines: ${positions}`
                           );
                       }),
                   ].join("\n")
