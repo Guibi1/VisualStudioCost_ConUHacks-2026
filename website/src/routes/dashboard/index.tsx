@@ -185,14 +185,7 @@ function Dashboard() {
                 </Card>
 
                 <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
-                    <CardHeader>
-                        <CardTitle>Utilisation budget</CardTitle>
-                        <CardAction>
-                            <SettingsDialog />
-                        </CardAction>
-                    </CardHeader>
 
-                    <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
                       <CardHeader>
                         <CardTitle>Budget Usage</CardTitle>
                       </CardHeader>
@@ -228,8 +221,6 @@ function Dashboard() {
                           {budgetValue}% of the budget is used · {budgetLabel}
                         </p>
                       </CardContent>
-                    </Card>
-
                 </Card>
             </div>
 
