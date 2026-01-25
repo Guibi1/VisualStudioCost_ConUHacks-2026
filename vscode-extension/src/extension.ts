@@ -19,18 +19,50 @@ interface LLMCall {
     loop_info: LoopInfo;
 }
 
+interface ImageGenerationCall {
+    type: "image";
+    callee: string;
+    position: { line: number; column: number };
+    model: string;
+    cost_per_image: number | null;
+    size: string | null;
+    quality: string | null;
+    n: number | null;
+    is_deprecated: boolean;
+    loop_info: LoopInfo;
+}
+
+interface AudioGenerationCall {
+    type: "audio";
+    callee: string;
+    position: { line: number; column: number };
+    model: string;
+    pricing_unit: "per_second" | "per_character" | "per_request";
+    cost_per_unit: number | null;
+    voice: string | null;
+    audio_operation: "speech" | "transcription" | "translation" | null;
+    is_deprecated: boolean;
+    loop_info: LoopInfo;
+}
+
 interface FunctionInfo {
     name: string;
     position: { line: number; column: number };
     llm_calls: LLMCall[];
+    image_calls: ImageGenerationCall[];
+    audio_calls: AudioGenerationCall[];
 }
 
 interface FunctionCallSite {
     callee: string;
     position: { line: number; column: number };
     llm_calls: LLMCall[];
+    image_calls: ImageGenerationCall[];
+    audio_calls: AudioGenerationCall[];
     is_cacheable: boolean;
     total_llm_calls: number;
+    total_image_calls: number;
+    total_audio_calls: number;
 }
 
 interface FileAnalysisResult {
@@ -69,6 +101,51 @@ function formatLLMCalls(llmCalls: LLMCall[], totalCountOverride?: number): strin
 
     const pieces = [];
     pieces.push(`Total ${totalCalls} LLM call${totalCalls !== 1 ? "s" : ""}`);
+    pieces.push(...perModel);
+
+    return pieces.join(" | ");
+}
+
+function formatImageCalls(imageCalls: ImageGenerationCall[], totalCountOverride?: number): string {
+    if (imageCalls.length === 0) {
+        return "Image call";
+    }
+
+    const totalCalls = totalCountOverride ?? imageCalls.length;
+
+    const perModel = imageCalls.map((call) => {
+        const parts = [call.model];
+        if (call.cost_per_image !== null) {
+            parts.push(`$${call.cost_per_image.toFixed(4)}/img`);
+        }
+        return parts.join(" ");
+    });
+
+    const pieces = [];
+    pieces.push(`Total ${totalCalls} Image call${totalCalls !== 1 ? "s" : ""}`);
+    pieces.push(...perModel);
+
+    return pieces.join(" | ");
+}
+
+function formatAudioCalls(audioCalls: AudioGenerationCall[], totalCountOverride?: number): string {
+    if (audioCalls.length === 0) {
+        return "Audio call";
+    }
+
+    const totalCalls = totalCountOverride ?? audioCalls.length;
+
+    const perModel = audioCalls.map((call) => {
+        const parts = [call.model];
+        if (call.cost_per_unit !== null) {
+            const unitLabel = call.pricing_unit === "per_second" ? "/sec" : call.pricing_unit === "per_character" ? "/char" : "/req";
+            parts.push(`$${call.cost_per_unit.toFixed(6)}${unitLabel}`);
+        }
+        return parts.join(" ");
+    });
+
+    const pieces = [];
+    pieces.push(`Total ${totalCalls} Audio call${totalCalls !== 1 ? "s" : ""}`);
     pieces.push(...perModel);
 
     return pieces.join(" | ");
@@ -154,6 +231,8 @@ function getCostTabHtml(analysis: AnalysisResult): string {
             gap: 4px;
         }
         .badge.muted { background: var(--vscode-editor-inactiveSelectionBackground); color: var(--vscode-foreground); }
+        .badge.image { background: #8b5cf6; color: white; }
+        .badge.audio { background: #06b6d4; color: white; }
         .file-body { padding: 6px 8px 10px; border-top: 1px solid var(--vscode-editorGroup-border); background: var(--vscode-editor-background); }
         .section-title { margin: 8px 0 4px; font-size: 11px; font-weight: 700; color: var(--vscode-descriptionForeground); text-transform: uppercase; letter-spacing: 0.03em; }
         .item { padding: 6px 8px; border-radius: 4px; }
@@ -179,7 +258,7 @@ function getCostTabHtml(analysis: AnalysisResult): string {
     </head>
     <body>
         <h1>VSCost</h1>
-        <p>Expand a file to see direct and indirect LLM usage.</p>
+        <p>Expand a file to see direct and indirect LLM, Image, and Audio usage.</p>
         <div class="files" id="files"></div>
         <script>
             const data = ${analysisJson};
@@ -241,13 +320,22 @@ function getCostTabHtml(analysis: AnalysisResult): string {
             }
 
             data.files.forEach((file) => {
-                const functionsWithCalls = (file.functions || []).filter((fn) => (fn.llm_calls?.length || 0) > 0);
-                const callSitesWithCalls = (file.call_sites || []).filter((cs) => (cs.llm_calls?.length || 0) > 0);
+                const functionsWithLLMCalls = (file.functions || []).filter((fn) => (fn.llm_calls?.length || 0) > 0);
+                const functionsWithImageCalls = (file.functions || []).filter((fn) => (fn.image_calls?.length || 0) > 0);
+                const functionsWithAudioCalls = (file.functions || []).filter((fn) => (fn.audio_calls?.length || 0) > 0);
+                const callSitesWithLLMCalls = (file.call_sites || []).filter((cs) => (cs.llm_calls?.length || 0) > 0);
+                const callSitesWithImageCalls = (file.call_sites || []).filter((cs) => (cs.image_calls?.length || 0) > 0);
+                const callSitesWithAudioCalls = (file.call_sites || []).filter((cs) => (cs.audio_calls?.length || 0) > 0);
 
-                const directCalls = functionsWithCalls.reduce((acc, fn) => acc + (fn.llm_calls?.length || 0), 0);
-                const indirectCalls = callSitesWithCalls.reduce((acc, cs) => acc + (cs.llm_calls?.length || 0), 0);
+                const directLLMCalls = functionsWithLLMCalls.reduce((acc, fn) => acc + (fn.llm_calls?.length || 0), 0);
+                const directImageCalls = functionsWithImageCalls.reduce((acc, fn) => acc + (fn.image_calls?.length || 0), 0);
+                const directAudioCalls = functionsWithAudioCalls.reduce((acc, fn) => acc + (fn.audio_calls?.length || 0), 0);
+                const indirectLLMCalls = callSitesWithLLMCalls.reduce((acc, cs) => acc + (cs.llm_calls?.length || 0), 0);
+                const indirectImageCalls = callSitesWithImageCalls.reduce((acc, cs) => acc + (cs.image_calls?.length || 0), 0);
+                const indirectAudioCalls = callSitesWithAudioCalls.reduce((acc, cs) => acc + (cs.audio_calls?.length || 0), 0);
 
-                if (directCalls === 0 && indirectCalls === 0) {
+                const totalCalls = directLLMCalls + directImageCalls + directAudioCalls + indirectLLMCalls + indirectImageCalls + indirectAudioCalls;
+                if (totalCalls === 0) {
                     return;
                 }
 
@@ -277,9 +365,11 @@ function getCostTabHtml(analysis: AnalysisResult): string {
                 row.appendChild(icon);
                 row.appendChild(name);
                 row.appendChild(pathText);
-                row.appendChild(createBadge(directCalls + ' LLM calls'));
-                row.appendChild(createBadge(functionsWithCalls.length + ' functions', 'muted'));
-                row.appendChild(createBadge(callSitesWithCalls.length + ' indirect', 'muted'));
+                if (directLLMCalls > 0) row.appendChild(createBadge(directLLMCalls + ' LLM'));
+                if (directImageCalls > 0) row.appendChild(createBadge(directImageCalls + ' Image', 'image'));
+                if (directAudioCalls > 0) row.appendChild(createBadge(directAudioCalls + ' Audio', 'audio'));
+                row.appendChild(createBadge((functionsWithLLMCalls.length + functionsWithImageCalls.length + functionsWithAudioCalls.length) + ' functions', 'muted'));
+                row.appendChild(createBadge((callSitesWithLLMCalls.length + callSitesWithImageCalls.length + callSitesWithAudioCalls.length) + ' indirect', 'muted'));
 
                 summary.appendChild(row);
 
@@ -294,19 +384,75 @@ function getCostTabHtml(analysis: AnalysisResult): string {
                 fnTitle.textContent = 'Direct LLM calls in functions';
                 body.appendChild(fnTitle);
 
-                if (!functionsWithCalls.length) {
+                if (!functionsWithLLMCalls.length) {
                     const empty = document.createElement('div');
                     empty.className = 'empty';
                     empty.textContent = 'No direct LLM calls detected.';
                     body.appendChild(empty);
                 } else {
-                    functionsWithCalls.forEach((fn) => {
+                    functionsWithLLMCalls.forEach((fn) => {
                         (fn.llm_calls || []).forEach((call) => {
                             addRow(
                                 body,
                                 fn.name || '(anonymous)',
                                 ['line ' + (call.position.line + 1), call.model],
-                                [createBadge('call')],
+                                [createBadge('LLM')],
+                                { path: file.file_path, line: call.position.line },
+                            );
+                        });
+                    });
+                }
+
+                // Direct Image calls in functions
+                const imgTitle = document.createElement('div');
+                imgTitle.className = 'section-title';
+                imgTitle.textContent = 'Direct Image calls in functions';
+                body.appendChild(imgTitle);
+
+                if (!functionsWithImageCalls.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty';
+                    empty.textContent = 'No direct Image calls detected.';
+                    body.appendChild(empty);
+                } else {
+                    functionsWithImageCalls.forEach((fn) => {
+                        (fn.image_calls || []).forEach((call) => {
+                            const meta = ['line ' + (call.position.line + 1), call.model];
+                            if (call.size) meta.push(call.size);
+                            if (call.quality) meta.push(call.quality);
+                            addRow(
+                                body,
+                                fn.name || '(anonymous)',
+                                meta,
+                                [createBadge('Image', 'image')],
+                                { path: file.file_path, line: call.position.line },
+                            );
+                        });
+                    });
+                }
+
+                // Direct Audio calls in functions
+                const audioTitle = document.createElement('div');
+                audioTitle.className = 'section-title';
+                audioTitle.textContent = 'Direct Audio calls in functions';
+                body.appendChild(audioTitle);
+
+                if (!functionsWithAudioCalls.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty';
+                    empty.textContent = 'No direct Audio calls detected.';
+                    body.appendChild(empty);
+                } else {
+                    functionsWithAudioCalls.forEach((fn) => {
+                        (fn.audio_calls || []).forEach((call) => {
+                            const meta = ['line ' + (call.position.line + 1), call.model];
+                            if (call.audio_operation) meta.push(call.audio_operation);
+                            if (call.voice) meta.push('voice: ' + call.voice);
+                            addRow(
+                                body,
+                                fn.name || '(anonymous)',
+                                meta,
+                                [createBadge('Audio', 'audio')],
                                 { path: file.file_path, line: call.position.line },
                             );
                         });
@@ -316,27 +462,33 @@ function getCostTabHtml(analysis: AnalysisResult): string {
                 // Indirect call sites
                 const csTitle = document.createElement('div');
                 csTitle.className = 'section-title';
-                csTitle.textContent = 'Indirect LLM call sites';
+                csTitle.textContent = 'Indirect API call sites';
                 body.appendChild(csTitle);
 
-                if (!callSitesWithCalls.length) {
+                const allIndirectSites = [...callSitesWithLLMCalls, ...callSitesWithImageCalls, ...callSitesWithAudioCalls];
+                const uniqueSites = Array.from(new Map(allIndirectSites.map(cs => [cs.position.line, cs])).values());
+
+                if (!uniqueSites.length) {
                     const empty = document.createElement('div');
                     empty.className = 'empty';
                     empty.textContent = 'No indirect call sites detected.';
                     body.appendChild(empty);
                 } else {
-                    callSitesWithCalls.forEach((cs) => {
-                        const callCount = cs.llm_calls?.length || 0;
-                        const badges = [
-                            createBadge(callCount + ' call' + (callCount === 1 ? '' : 's')),
-                        ];
+                    uniqueSites.forEach((cs) => {
+                        const llmCount = cs.llm_calls?.length || 0;
+                        const imgCount = cs.image_calls?.length || 0;
+                        const audCount = cs.audio_calls?.length || 0;
+                        const badges = [];
+                        if (llmCount > 0) badges.push(createBadge(llmCount + ' LLM'));
+                        if (imgCount > 0) badges.push(createBadge(imgCount + ' Image', 'image'));
+                        if (audCount > 0) badges.push(createBadge(audCount + ' Audio', 'audio'));
                         if (cs.is_cacheable) {
                             badges.push(createBadge('cacheable', 'muted'));
                         }
                         addRow(
                             body,
                             cs.callee,
-                            ['line ' + (cs.position.line + 1), 'indirect total ' + (cs.total_llm_calls ?? callCount)],
+                            ['line ' + (cs.position.line + 1), 'indirect calls'],
                             badges,
                             { path: file.file_path, line: cs.position.line },
                         );
@@ -475,7 +627,7 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
 
         // Create CodeLens for each LLM call
         for (const func of fileAnalysis.functions) {
-            for (const llmCall of func.llm_calls) {
+            for (const llmCall of func.llm_calls || []) {
                 const line = llmCall.position.line;
                 const range = new vscode.Range(line, 0, line, 0);
 
@@ -486,26 +638,82 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
                 if (llmCall.cost_per_1M_tokens !== null) {
                     info.push(`$${llmCall.cost_per_1M_tokens.toFixed(2)}/1M tokens`);
                     if (llmCall.cost_per_1M_tokens > 5.0) {
-                        info.push(" 🤑 Costly");
+                        info.push(" Costly");
                     } else {
-                        info.push(" ✅ Affordable");
+                        info.push(" Affordable");
                     }
                 }
 
                 if (llmCall.is_deprecated) {
-                    info.push(" 👴 Deprecated");
+                    info.push(" Deprecated");
                 }
                 if (llmCall.loop_info.is_in_loop) {
-                    info.push(` 🔁 In ${llmCall.loop_info.loop_type} loop`);
+                    info.push(` In ${llmCall.loop_info.loop_type} loop`);
                 }
                 if (llmCall.is_cacheable) {
-                    info.push(" ⚠️ Cacheable");
+                    info.push(" Cacheable");
                 }
                 if (llmCall.supports_thinking) {
-                    info.push(" 💸 Thinking");
+                    info.push(" Thinking");
                 }
 
-                const title = `${llmCall.model} | ${info.join(" | ")}`;
+                const title = `[LLM] ${llmCall.model} | ${info.join(" | ")}`;
+
+                codeLenses.push(
+                    new vscode.CodeLens(range, {
+                        title: title,
+                        command: "",
+                    }),
+                );
+            }
+
+            // Create CodeLens for each Image call
+            for (const imageCall of func.image_calls || []) {
+                const line = imageCall.position.line;
+                const range = new vscode.Range(line, 0, line, 0);
+
+                const info: string[] = [];
+
+                if (imageCall.cost_per_image !== null) {
+                    const totalCost = imageCall.cost_per_image * (imageCall.n || 1);
+                    info.push(`$${totalCost.toFixed(4)}/call`);
+                }
+                if (imageCall.size) info.push(`Size: ${imageCall.size}`);
+                if (imageCall.quality) info.push(`Quality: ${imageCall.quality}`);
+                if (imageCall.is_deprecated) info.push("Deprecated");
+                if (imageCall.loop_info.is_in_loop) {
+                    info.push(`In ${imageCall.loop_info.loop_type} loop - HIGH COST`);
+                }
+
+                const title = `[IMG] ${imageCall.model} | ${info.join(" | ")}`;
+
+                codeLenses.push(
+                    new vscode.CodeLens(range, {
+                        title: title,
+                        command: "",
+                    }),
+                );
+            }
+
+            // Create CodeLens for each Audio call
+            for (const audioCall of func.audio_calls || []) {
+                const line = audioCall.position.line;
+                const range = new vscode.Range(line, 0, line, 0);
+
+                const info: string[] = [];
+
+                if (audioCall.cost_per_unit !== null) {
+                    const unitLabel = audioCall.pricing_unit === "per_second" ? "/sec" : audioCall.pricing_unit === "per_character" ? "/1K chars" : "/req";
+                    info.push(`$${audioCall.cost_per_unit.toFixed(6)}${unitLabel}`);
+                }
+                if (audioCall.voice) info.push(`Voice: ${audioCall.voice}`);
+                if (audioCall.audio_operation) info.push(`Op: ${audioCall.audio_operation}`);
+                if (audioCall.is_deprecated) info.push("Deprecated");
+                if (audioCall.loop_info.is_in_loop) {
+                    info.push(`In ${audioCall.loop_info.loop_type} loop`);
+                }
+
+                const title = `[AUDIO] ${audioCall.model} | ${info.join(" | ")}`;
 
                 codeLenses.push(
                     new vscode.CodeLens(range, {
@@ -516,19 +724,31 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
             }
         }
 
-        // Create CodeLens for call sites that transitively invoke LLMs
+        // Create CodeLens for call sites that transitively invoke APIs
         for (const callSite of fileAnalysis.call_sites ?? []) {
-            if (!callSite.llm_calls || callSite.llm_calls.length === 0) {
+            const hasLLM = callSite.llm_calls && callSite.llm_calls.length > 0;
+            const hasImage = callSite.image_calls && callSite.image_calls.length > 0;
+            const hasAudio = callSite.audio_calls && callSite.audio_calls.length > 0;
+
+            if (!hasLLM && !hasImage && !hasAudio) {
                 continue;
             }
 
             const line = callSite.position.line;
             const range = new vscode.Range(line, 0, line, 0);
-            const infoParts = [
-                `Indirect LLM via ${callSite.callee}: ${formatLLMCalls(callSite.llm_calls, callSite.total_llm_calls)}`,
-            ];
+            const infoParts: string[] = [`Indirect via ${callSite.callee}:`];
+
+            if (hasLLM) {
+                infoParts.push(formatLLMCalls(callSite.llm_calls, callSite.total_llm_calls));
+            }
+            if (hasImage) {
+                infoParts.push(formatImageCalls(callSite.image_calls, callSite.total_image_calls));
+            }
+            if (hasAudio) {
+                infoParts.push(formatAudioCalls(callSite.audio_calls, callSite.total_audio_calls));
+            }
             if (callSite.is_cacheable) {
-                infoParts.push("⚠️ Cacheable");
+                infoParts.push("Cacheable");
             }
             const title = infoParts.join(" | ");
 
@@ -608,10 +828,14 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
         }
 
         if (element.kind === "file") {
-            const directCalls: TreeEntry[] = [];
+            const directLLMCalls: TreeEntry[] = [];
+            const directImageCalls: TreeEntry[] = [];
+            const directAudioCalls: TreeEntry[] = [];
+            const indirectCalls: TreeEntry[] = [];
+
             for (const fn of element.file.functions || []) {
                 for (const call of fn.llm_calls || []) {
-                    directCalls.push({
+                    directLLMCalls.push({
                         kind: "call",
                         filePath: element.file.file_path,
                         line: call.position.line,
@@ -620,28 +844,58 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
                         icon: new vscode.ThemeIcon("symbol-method"),
                     });
                 }
-            }
-
-            const indirectCalls: TreeEntry[] = [];
-            for (const cs of element.file.call_sites || []) {
-                for (const call of cs.llm_calls || []) {
-                    indirectCalls.push({
+                for (const call of fn.image_calls || []) {
+                    directImageCalls.push({
                         kind: "call",
                         filePath: element.file.file_path,
                         line: call.position.line,
-                        label: `Uses LLM indirectly · ${cs.callee} · ${call.model}`,
+                        label: `${fn.name || "(anonymous)"} · ${call.model}`,
                         description: `line ${call.position.line + 1}`,
+                        icon: new vscode.ThemeIcon("device-camera"),
+                    });
+                }
+                for (const call of fn.audio_calls || []) {
+                    directAudioCalls.push({
+                        kind: "call",
+                        filePath: element.file.file_path,
+                        line: call.position.line,
+                        label: `${fn.name || "(anonymous)"} · ${call.model}`,
+                        description: `line ${call.position.line + 1}`,
+                        icon: new vscode.ThemeIcon("mic"),
+                    });
+                }
+            }
+
+            for (const cs of element.file.call_sites || []) {
+                const hasAny = (cs.llm_calls?.length || 0) + (cs.image_calls?.length || 0) + (cs.audio_calls?.length || 0) > 0;
+                if (hasAny) {
+                    const types: string[] = [];
+                    if (cs.llm_calls?.length) types.push("LLM");
+                    if (cs.image_calls?.length) types.push("Image");
+                    if (cs.audio_calls?.length) types.push("Audio");
+                    indirectCalls.push({
+                        kind: "call",
+                        filePath: element.file.file_path,
+                        line: cs.position.line,
+                        label: `Uses ${types.join("+")} indirectly · ${cs.callee}`,
+                        description: `line ${cs.position.line + 1}`,
                         icon: new vscode.ThemeIcon("link"),
                     });
                 }
             }
 
             const groups: TreeEntry[] = [];
-            if (directCalls.length) {
-                groups.push({ kind: "group", label: "Direct LLM calls", calls: directCalls });
+            if (directLLMCalls.length) {
+                groups.push({ kind: "group", label: "Direct LLM calls", calls: directLLMCalls });
+            }
+            if (directImageCalls.length) {
+                groups.push({ kind: "group", label: "Direct Image calls", calls: directImageCalls });
+            }
+            if (directAudioCalls.length) {
+                groups.push({ kind: "group", label: "Direct Audio calls", calls: directAudioCalls });
             }
             if (indirectCalls.length) {
-                groups.push({ kind: "group", label: "Uses LLM indirectly", calls: indirectCalls });
+                groups.push({ kind: "group", label: "Uses API indirectly", calls: indirectCalls });
             }
 
             return groups;
@@ -655,9 +909,13 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
     }
 
     private fileHasCalls(file: FileAnalysisResult): boolean {
-        const direct = (file.functions || []).some((fn) => (fn.llm_calls?.length || 0) > 0);
-        const indirect = (file.call_sites || []).some((cs) => (cs.llm_calls?.length || 0) > 0);
-        return direct || indirect;
+        const directLLM = (file.functions || []).some((fn) => (fn.llm_calls?.length || 0) > 0);
+        const directImage = (file.functions || []).some((fn) => (fn.image_calls?.length || 0) > 0);
+        const directAudio = (file.functions || []).some((fn) => (fn.audio_calls?.length || 0) > 0);
+        const indirectLLM = (file.call_sites || []).some((cs) => (cs.llm_calls?.length || 0) > 0);
+        const indirectImage = (file.call_sites || []).some((cs) => (cs.image_calls?.length || 0) > 0);
+        const indirectAudio = (file.call_sites || []).some((cs) => (cs.audio_calls?.length || 0) > 0);
+        return directLLM || directImage || directAudio || indirectLLM || indirectImage || indirectAudio;
     }
 }
 
@@ -728,6 +986,8 @@ class DiagnosticsTreeDataProvider implements vscode.TreeDataProvider<DiagnosticE
 
             for (const file of this.analysis.files) {
                 const fileName = file.file_path.split(/[/\\]/).pop() || file.file_path;
+
+                // Process LLM calls
                 for (const fn of file.functions || []) {
                     for (const call of fn.llm_calls || []) {
                         if (call.is_deprecated) {
@@ -763,7 +1023,65 @@ class DiagnosticsTreeDataProvider implements vscode.TreeDataProvider<DiagnosticE
                         if (call.loop_info.is_in_loop) {
                             warnings.push({
                                 kind: "item",
-                                label: `In ${call.loop_info.loop_type} loop`,
+                                label: `LLM in ${call.loop_info.loop_type} loop`,
+                                description: `${fileName}:${call.position.line + 1}`,
+                                filePath: file.file_path,
+                                line: call.position.line,
+                                severity: "warning",
+                            });
+                        }
+                    }
+
+                    // Process Image calls
+                    for (const call of fn.image_calls || []) {
+                        if (call.is_deprecated) {
+                            errors.push({
+                                kind: "item",
+                                label: `Deprecated Image: ${call.model}`,
+                                description: `${fileName}:${call.position.line + 1}`,
+                                filePath: file.file_path,
+                                line: call.position.line,
+                                severity: "error",
+                            });
+                        }
+                        if (call.loop_info.is_in_loop) {
+                            errors.push({
+                                kind: "item",
+                                label: `Image gen in ${call.loop_info.loop_type} loop - HIGH COST`,
+                                description: `${fileName}:${call.position.line + 1}`,
+                                filePath: file.file_path,
+                                line: call.position.line,
+                                severity: "error",
+                            });
+                        }
+                        if (call.quality === "hd") {
+                            warnings.push({
+                                kind: "item",
+                                label: `HD quality doubles cost: ${call.model}`,
+                                description: `${fileName}:${call.position.line + 1}`,
+                                filePath: file.file_path,
+                                line: call.position.line,
+                                severity: "warning",
+                            });
+                        }
+                    }
+
+                    // Process Audio calls
+                    for (const call of fn.audio_calls || []) {
+                        if (call.is_deprecated) {
+                            errors.push({
+                                kind: "item",
+                                label: `Deprecated Audio: ${call.model}`,
+                                description: `${fileName}:${call.position.line + 1}`,
+                                filePath: file.file_path,
+                                line: call.position.line,
+                                severity: "error",
+                            });
+                        }
+                        if (call.loop_info.is_in_loop) {
+                            warnings.push({
+                                kind: "item",
+                                label: `Audio in ${call.loop_info.loop_type} loop`,
                                 description: `${fileName}:${call.position.line + 1}`,
                                 filePath: file.file_path,
                                 line: call.position.line,
@@ -971,9 +1289,9 @@ class QuickPicksWebviewProvider implements vscode.WebviewViewProvider {
         `;
 
         const content = [
-            renderCategory("🤑", "CHEAPEST", cheapestModels, true),
-            renderCategory("💀", "DEPRECATED", deprecatedModels),
-            renderCategory("🔥", "CASH BURNERS", expensiveModels),
+            renderCategory("CHEAPEST", "CHEAPEST", cheapestModels, true),
+            renderCategory("DEPRECATED", "DEPRECATED", deprecatedModels),
+            renderCategory("CASH BURNERS", "CASH BURNERS", expensiveModels),
         ].join("");
 
         return `<!DOCTYPE html>
@@ -1212,6 +1530,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 const fileDiagnostics: vscode.Diagnostic[] = [];
 
                 for (const fn of file.functions || []) {
+                    // LLM call diagnostics
                     for (const call of fn.llm_calls || []) {
                         const messages: string[] = [];
                         let severity: vscode.DiagnosticSeverity = vscode.DiagnosticSeverity.Information;
@@ -1251,6 +1570,60 @@ export async function activate(context: vscode.ExtensionContext) {
                         const diag = new vscode.Diagnostic(range, messages.join(" · "), severity);
                         diag.source = "VSCost";
                         diag.code = "VSCost";
+                        fileDiagnostics.push(diag);
+                    }
+
+                    // Image call diagnostics
+                    for (const call of fn.image_calls || []) {
+                        const messages: string[] = [];
+                        let severity: vscode.DiagnosticSeverity = vscode.DiagnosticSeverity.Information;
+
+                        if (call.is_deprecated) {
+                            messages.push("Image model is deprecated");
+                            severity = vscode.DiagnosticSeverity.Error;
+                        }
+                        if (call.loop_info.is_in_loop) {
+                            messages.push(`Image generation in ${call.loop_info.loop_type} loop - HIGH COST`);
+                            severity = vscode.DiagnosticSeverity.Error;
+                        }
+                        if (call.quality === "hd") {
+                            messages.push("HD quality doubles image generation cost");
+                            if (severity === vscode.DiagnosticSeverity.Information) {
+                                severity = vscode.DiagnosticSeverity.Warning;
+                            }
+                        }
+
+                        if (messages.length === 0) continue;
+
+                        const range = new vscode.Range(call.position.line, 0, call.position.line, 200);
+                        const diag = new vscode.Diagnostic(range, messages.join(" · "), severity);
+                        diag.source = "VSCost";
+                        diag.code = "VSCost-Image";
+                        fileDiagnostics.push(diag);
+                    }
+
+                    // Audio call diagnostics
+                    for (const call of fn.audio_calls || []) {
+                        const messages: string[] = [];
+                        let severity: vscode.DiagnosticSeverity = vscode.DiagnosticSeverity.Information;
+
+                        if (call.is_deprecated) {
+                            messages.push("Audio model is deprecated");
+                            severity = vscode.DiagnosticSeverity.Error;
+                        }
+                        if (call.loop_info.is_in_loop) {
+                            messages.push(`Audio generation in ${call.loop_info.loop_type} loop`);
+                            if (severity === vscode.DiagnosticSeverity.Information) {
+                                severity = vscode.DiagnosticSeverity.Warning;
+                            }
+                        }
+
+                        if (messages.length === 0) continue;
+
+                        const range = new vscode.Range(call.position.line, 0, call.position.line, 200);
+                        const diag = new vscode.Diagnostic(range, messages.join(" · "), severity);
+                        diag.source = "VSCost";
+                        diag.code = "VSCost-Audio";
                         fileDiagnostics.push(diag);
                     }
                 }

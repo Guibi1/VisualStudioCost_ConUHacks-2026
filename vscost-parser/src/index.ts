@@ -2,13 +2,23 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import ts from "typescript";
 import prices_llm from "../assets/prices_llm.js";
-import type { AnalysisResult, FileAnalysisResult, FunctionInfo, LLMCall, LoopInfo } from "./types.js";
+import type {
+    AnalysisResult,
+    AudioGenerationCall,
+    FileAnalysisResult,
+    FunctionInfo,
+    ImageGenerationCall,
+    LLMCall,
+    LoopInfo,
+} from "./types.js";
 
 export type {
     AnalysisResult,
+    AudioGenerationCall,
     FileAnalysisResult,
     FunctionCallSite,
     FunctionInfo,
+    ImageGenerationCall,
     LLMCall,
     LoopInfo,
 } from "./types.js";
@@ -39,15 +49,76 @@ function get_model_object(model_name: string): any | null {
     return prices.data.find((entry) => entry.id.split("/").pop() === shortName) ?? null;
 }
 
+// LLM API patterns
+const LLM_CALLEES = [
+    "openai.ChatCompletion.create",
+    "gemini.ChatCompletion.create",
+    "gemini.chat.completions.create",
+    "ai.generateText",
+    "anthropic.chat.completions.create",
+    "openRouter.chat.send",
+];
+
+// Image generation API patterns
+const IMAGE_CALLEES = [
+    "openai.images.generate",
+    "openai.images.edit",
+    "openai.images.createVariation",
+    "openai.Image.create",
+    "openai.Image.edit",
+    "openai.Image.variation",
+    "stability.generate",
+    "stability.textToImage",
+    "stability.imageToImage",
+    "stabilityai.generate",
+    "replicate.run",
+    "midjourney.imagine",
+    "ai.generateImage",
+    "openRouter.images.generate",
+];
+
+// Audio generation API patterns
+const AUDIO_CALLEES = [
+    "openai.audio.speech.create",
+    "openai.audio.transcriptions.create",
+    "openai.audio.translations.create",
+    "elevenlabs.generate",
+    "elevenlabs.textToSpeech",
+    "elevenlabs.voiceGeneration",
+    "textToSpeech.synthesize",
+    "polly.synthesizeSpeech",
+    "speechSynthesizer.speakTextAsync",
+    "ai.generateSpeech",
+    "ai.transcribe",
+    "openRouter.audio.speech.create",
+];
+
+type CalleeType = "llm" | "image" | "audio" | null;
+
+function getCalleeType(callee: string): CalleeType {
+    // Check exact LLM matches
+    if (LLM_CALLEES.includes(callee)) return "llm";
+
+    // Check exact image matches
+    if (IMAGE_CALLEES.includes(callee)) return "image";
+
+    // Check exact audio matches
+    if (AUDIO_CALLEES.includes(callee)) return "audio";
+
+    // Fuzzy matching for common patterns
+    if (IMAGE_CALLEES.some((c) => callee.includes(c))) return "image";
+    if (AUDIO_CALLEES.some((c) => callee.includes(c))) return "audio";
+
+    // Pattern-based detection
+    if (callee.includes(".images.") || callee.includes("Image.create")) return "image";
+    if (callee.includes(".audio.") || callee.includes("speech.create") || callee.includes("transcriptions.create"))
+        return "audio";
+
+    return null;
+}
+
 function isTargetCallee(callee: string): boolean {
-    return (
-        callee === "openai.ChatCompletion.create" ||
-        callee === "gemini.ChatCompletion.create" ||
-        callee === "gemini.chat.completions.create" ||
-        callee === "ai.generateText" ||
-        callee === "anthropic.chat.completions.create" ||
-        callee === "openRouter.chat.send"
-    );
+    return LLM_CALLEES.includes(callee);
 }
 
 function getSimpleCalleeName(node: ts.CallExpression, sourceFile: ts.SourceFile): string | null {
@@ -183,44 +254,192 @@ function getLoopInfo(node: ts.Node, sourceFile: ts.SourceFile): LoopInfo {
     };
 }
 
-function parse_call_expression(node: ts.CallExpression, sourceFile: ts.SourceFile): LLMCall | null {
-    const callee = node.expression.getText(sourceFile);
-    if (!isTargetCallee(callee)) {
-        return null;
-    }
-    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-    const position = { line: pos.line, column: pos.character };
+function extractObjectProperty(
+    node: ts.CallExpression,
+    sourceFile: ts.SourceFile,
+    propName: string,
+): string | null {
     for (const arg of node.arguments) {
         if (ts.isObjectLiteralExpression(arg)) {
             for (const prop of arg.properties) {
-                if (ts.isPropertyAssignment(prop) && prop.name.getText(sourceFile) === "model") {
-                    const modelValue = prop.initializer.getText(sourceFile).replace(/['"`]/g, "");
-                    const model_object = get_model_object(modelValue);
-                    const supports_thinking =
-                        model_object &&
-                        Array.isArray(model_object.supported_parameters) &&
-                        model_object.supported_parameters.includes("include_reasoning");
-                    const loop_info = getLoopInfo(node, sourceFile);
-                    const is_cacheable = checkMessagesAreCacheable(node, sourceFile);
-                    const is_deprecated = isModelDeprecated(model_object);
-                    const cost_per_1M_tokens = model_object?.pricing?.prompt
-                        ? Number.parseFloat(model_object.pricing.prompt) * 1_000_000
-                        : Number.NaN;
-                    return {
-                        callee: callee,
-                        position: position,
-                        model: modelValue,
-                        cost_per_1M_tokens: cost_per_1M_tokens,
-                        supports_thinking: supports_thinking,
-                        is_deprecated: is_deprecated,
-                        is_cacheable: is_cacheable,
-                        loop_info: loop_info,
-                    };
+                if (ts.isPropertyAssignment(prop) && prop.name.getText(sourceFile) === propName) {
+                    return prop.initializer.getText(sourceFile).replace(/['"`]/g, "");
                 }
             }
         }
     }
     return null;
+}
+
+function extractNumericProperty(
+    node: ts.CallExpression,
+    sourceFile: ts.SourceFile,
+    propName: string,
+): number | null {
+    const value = extractObjectProperty(node, sourceFile, propName);
+    if (value !== null) {
+        const num = Number.parseFloat(value);
+        return Number.isNaN(num) ? null : num;
+    }
+    return null;
+}
+
+function parseLLMCall(
+    node: ts.CallExpression,
+    sourceFile: ts.SourceFile,
+    callee: string,
+    position: { line: number; column: number },
+    loop_info: LoopInfo,
+): LLMCall | null {
+    const modelValue = extractObjectProperty(node, sourceFile, "model");
+    if (!modelValue) return null;
+
+    const model_object = get_model_object(modelValue);
+    const supports_thinking =
+        model_object &&
+        Array.isArray(model_object.supported_parameters) &&
+        model_object.supported_parameters.includes("include_reasoning");
+    const is_cacheable = checkMessagesAreCacheable(node, sourceFile);
+    const is_deprecated = isModelDeprecated(model_object);
+    const cost_per_1M_tokens = model_object?.pricing?.prompt
+        ? Number.parseFloat(model_object.pricing.prompt) * 1_000_000
+        : Number.NaN;
+
+    return {
+        type: "llm",
+        callee,
+        position,
+        model: modelValue,
+        cost_per_1M_tokens,
+        supports_thinking,
+        is_deprecated,
+        is_cacheable,
+        loop_info,
+    };
+}
+
+function parseImageCall(
+    node: ts.CallExpression,
+    sourceFile: ts.SourceFile,
+    callee: string,
+    position: { line: number; column: number },
+    loop_info: LoopInfo,
+): ImageGenerationCall {
+    const model = extractObjectProperty(node, sourceFile, "model") || "dall-e-3";
+    const size = extractObjectProperty(node, sourceFile, "size");
+    const quality = extractObjectProperty(node, sourceFile, "quality");
+    const n = extractNumericProperty(node, sourceFile, "n");
+
+    const model_object = get_model_object(model);
+    const is_deprecated = isModelDeprecated(model_object);
+
+    // Calculate cost per image
+    let cost_per_image: number | null = null;
+    if (model_object?.pricing?.image) {
+        cost_per_image = Number.parseFloat(model_object.pricing.image);
+        // Apply size multiplier for DALL-E style pricing
+        if (size === "1792x1024" || size === "1024x1792") {
+            cost_per_image *= 2;
+        }
+        // Apply quality multiplier
+        if (quality === "hd") {
+            cost_per_image *= 2;
+        }
+    }
+
+    return {
+        type: "image",
+        callee,
+        position,
+        model,
+        cost_per_image,
+        size,
+        quality,
+        n,
+        is_deprecated,
+        loop_info,
+    };
+}
+
+function parseAudioCall(
+    node: ts.CallExpression,
+    sourceFile: ts.SourceFile,
+    callee: string,
+    position: { line: number; column: number },
+    loop_info: LoopInfo,
+): AudioGenerationCall {
+    const model = extractObjectProperty(node, sourceFile, "model") || "tts-1";
+    const voice = extractObjectProperty(node, sourceFile, "voice");
+
+    const model_object = get_model_object(model);
+    const is_deprecated = isModelDeprecated(model_object);
+
+    // Determine audio operation from callee
+    let audio_operation: "speech" | "transcription" | "translation" | null = null;
+    if (callee.includes("speech") || callee.includes("tts") || callee.includes("textToSpeech")) {
+        audio_operation = "speech";
+    } else if (callee.includes("transcription")) {
+        audio_operation = "transcription";
+    } else if (callee.includes("translation")) {
+        audio_operation = "translation";
+    }
+
+    // Determine pricing unit based on operation
+    let pricing_unit: "per_second" | "per_character" | "per_request" = "per_character";
+    if (audio_operation === "transcription" || audio_operation === "translation") {
+        pricing_unit = "per_second";
+    }
+
+    // Get cost per unit
+    let cost_per_unit: number | null = null;
+    if (model_object?.pricing?.audio) {
+        cost_per_unit = Number.parseFloat(model_object.pricing.audio);
+    }
+
+    return {
+        type: "audio",
+        callee,
+        position,
+        model,
+        pricing_unit,
+        cost_per_unit,
+        voice,
+        audio_operation,
+        is_deprecated,
+        loop_info,
+    };
+}
+
+type ParsedAPICall =
+    | { type: "llm"; call: LLMCall }
+    | { type: "image"; call: ImageGenerationCall }
+    | { type: "audio"; call: AudioGenerationCall }
+    | null;
+
+function parse_call_expression(node: ts.CallExpression, sourceFile: ts.SourceFile): ParsedAPICall {
+    const callee = node.expression.getText(sourceFile);
+    const calleeType = getCalleeType(callee);
+
+    if (!calleeType) return null;
+
+    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+    const position = { line: pos.line, column: pos.character };
+    const loop_info = getLoopInfo(node, sourceFile);
+
+    switch (calleeType) {
+        case "llm": {
+            const call = parseLLMCall(node, sourceFile, callee, position, loop_info);
+            return call ? { type: "llm", call } : null;
+        }
+        case "image": {
+            const call = parseImageCall(node, sourceFile, callee, position, loop_info);
+            return { type: "image", call };
+        }
+        case "audio": {
+            const call = parseAudioCall(node, sourceFile, callee, position, loop_info);
+            return { type: "audio", call };
+        }
+    }
 }
 
 function findAllCallExpressions(node: ts.Node): ts.CallExpression[] {
@@ -263,8 +482,12 @@ type ParsedFile = {
 };
 
 type TransitiveResult = {
-    uniqueCalls: LLMCall[];
-    count: number;
+    uniqueLLMCalls: LLMCall[];
+    uniqueImageCalls: ImageGenerationCall[];
+    uniqueAudioCalls: AudioGenerationCall[];
+    llmCount: number;
+    imageCount: number;
+    audioCount: number;
 };
 
 function dedupeLLMCalls(calls: LLMCall[]): LLMCall[] {
@@ -289,8 +512,48 @@ function dedupeLLMCalls(calls: LLMCall[]): LLMCall[] {
     return result;
 }
 
+function dedupeImageCalls(calls: ImageGenerationCall[]): ImageGenerationCall[] {
+    const seen = new Set<string>();
+    const result: ImageGenerationCall[] = [];
+
+    for (const call of calls) {
+        const key = [call.callee, call.model, call.position.line, call.position.column].join("|");
+
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(call);
+        }
+    }
+
+    return result;
+}
+
+function dedupeAudioCalls(calls: AudioGenerationCall[]): AudioGenerationCall[] {
+    const seen = new Set<string>();
+    const result: AudioGenerationCall[] = [];
+
+    for (const call of calls) {
+        const key = [call.callee, call.model, call.position.line, call.position.column].join("|");
+
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(call);
+        }
+    }
+
+    return result;
+}
+
 function mergeLLMCalls(existing: LLMCall[], incoming: LLMCall[]): LLMCall[] {
     return dedupeLLMCalls([...existing, ...incoming]);
+}
+
+function mergeImageCalls(existing: ImageGenerationCall[], incoming: ImageGenerationCall[]): ImageGenerationCall[] {
+    return dedupeImageCalls([...existing, ...incoming]);
+}
+
+function mergeAudioCalls(existing: AudioGenerationCall[], incoming: AudioGenerationCall[]): AudioGenerationCall[] {
+    return dedupeAudioCalls([...existing, ...incoming]);
 }
 
 function parse_file(file_path: string, ast: ts.SourceFile): ParsedFile {
@@ -311,13 +574,25 @@ function parse_file(file_path: string, ast: ts.SourceFile): ParsedFile {
         const funcPos = ast.getLineAndCharacterOfPosition(node.getStart(ast));
         const position = { line: funcPos.line, column: funcPos.character };
         const llmCalls: LLMCall[] = [];
+        const imageCalls: ImageGenerationCall[] = [];
+        const audioCalls: AudioGenerationCall[] = [];
         const callees: string[] = [];
 
         const callExpressions = findAllCallExpressions(node);
         for (const call of callExpressions) {
-            const llmCall = parse_call_expression(call, ast);
-            if (llmCall) {
-                llmCalls.push(llmCall);
+            const parsedCall = parse_call_expression(call, ast);
+            if (parsedCall) {
+                switch (parsedCall.type) {
+                    case "llm":
+                        llmCalls.push(parsedCall.call);
+                        break;
+                    case "image":
+                        imageCalls.push(parsedCall.call);
+                        break;
+                    case "audio":
+                        audioCalls.push(parsedCall.call);
+                        break;
+                }
                 continue;
             }
 
@@ -332,6 +607,8 @@ function parse_file(file_path: string, ast: ts.SourceFile): ParsedFile {
             name: funcName,
             position,
             llm_calls: llmCalls,
+            image_calls: imageCalls,
+            audio_calls: audioCalls,
             callees,
         });
     }
@@ -345,11 +622,11 @@ function parse_file(file_path: string, ast: ts.SourceFile): ParsedFile {
 
     ts.forEachChild(ast, visitNode);
 
-    // Collect all non-LLM call expressions in the file for call-site lenses
+    // Collect all non-API call expressions in the file for call-site lenses
     const allCalls = findAllCallExpressions(ast);
     for (const call of allCalls) {
-        const llmCall = parse_call_expression(call, ast);
-        if (llmCall) continue; // direct LLM calls already surfaced at callsite
+        const parsedCall = parse_call_expression(call, ast);
+        if (parsedCall) continue; // direct API calls already surfaced at callsite
 
         const calleeName = getSimpleCalleeName(call, ast);
         if (!calleeName) continue;
@@ -435,13 +712,20 @@ export function analyze_code(files: string[], fileContents?: Record<string, stri
 
     const memoizedTransitive = new Map<string, TransitiveResult>();
 
-    function getTransitiveLLMCalls(functionId: string, stack: Set<string> = new Set()): TransitiveResult {
+    function getTransitiveCalls(functionId: string, stack: Set<string> = new Set()): TransitiveResult {
         if (memoizedTransitive.has(functionId)) {
             return memoizedTransitive.get(functionId)!;
         }
 
         if (stack.has(functionId)) {
-            const empty: TransitiveResult = { uniqueCalls: [], count: 0 };
+            const empty: TransitiveResult = {
+                uniqueLLMCalls: [],
+                uniqueImageCalls: [],
+                uniqueAudioCalls: [],
+                llmCount: 0,
+                imageCount: 0,
+                audioCount: 0,
+            };
             memoizedTransitive.set(functionId, empty);
             return empty;
         }
@@ -450,26 +734,47 @@ export function analyze_code(files: string[], fileContents?: Record<string, stri
 
         const fn = functionMap.get(functionId);
         if (!fn) {
-            const empty: TransitiveResult = { uniqueCalls: [], count: 0 };
+            const empty: TransitiveResult = {
+                uniqueLLMCalls: [],
+                uniqueImageCalls: [],
+                uniqueAudioCalls: [],
+                llmCount: 0,
+                imageCount: 0,
+                audioCount: 0,
+            };
             memoizedTransitive.set(functionId, empty);
             stack.delete(functionId);
             return empty;
         }
 
-        let combinedCalls: LLMCall[] = [...fn.llm_calls];
-        let count = fn.llm_calls.length;
+        let combinedLLMCalls: LLMCall[] = [...fn.llm_calls];
+        let combinedImageCalls: ImageGenerationCall[] = [...fn.image_calls];
+        let combinedAudioCalls: AudioGenerationCall[] = [...fn.audio_calls];
+        let llmCount = fn.llm_calls.length;
+        let imageCount = fn.image_calls.length;
+        let audioCount = fn.audio_calls.length;
 
         for (const calleeName of fn.callees) {
             const candidateIds = functionsByName.get(calleeName) ?? [];
             for (const candidateId of candidateIds) {
-                const result = getTransitiveLLMCalls(candidateId, stack);
-                combinedCalls = mergeLLMCalls(combinedCalls, result.uniqueCalls);
-                count += result.count;
+                const result = getTransitiveCalls(candidateId, stack);
+                combinedLLMCalls = mergeLLMCalls(combinedLLMCalls, result.uniqueLLMCalls);
+                combinedImageCalls = mergeImageCalls(combinedImageCalls, result.uniqueImageCalls);
+                combinedAudioCalls = mergeAudioCalls(combinedAudioCalls, result.uniqueAudioCalls);
+                llmCount += result.llmCount;
+                imageCount += result.imageCount;
+                audioCount += result.audioCount;
             }
         }
 
-        const deduped = dedupeLLMCalls(combinedCalls);
-        const computed: TransitiveResult = { uniqueCalls: deduped, count };
+        const computed: TransitiveResult = {
+            uniqueLLMCalls: dedupeLLMCalls(combinedLLMCalls),
+            uniqueImageCalls: dedupeImageCalls(combinedImageCalls),
+            uniqueAudioCalls: dedupeAudioCalls(combinedAudioCalls),
+            llmCount,
+            imageCount,
+            audioCount,
+        };
         memoizedTransitive.set(functionId, computed);
         stack.delete(functionId);
         return computed;
@@ -484,6 +789,8 @@ export function analyze_code(files: string[], fileContents?: Record<string, stri
                 name: fn.name,
                 position: fn.position,
                 llm_calls: fn.llm_calls,
+                image_calls: fn.image_calls,
+                audio_calls: fn.audio_calls,
             })),
             call_sites: [],
         });
@@ -495,22 +802,34 @@ export function analyze_code(files: string[], fileContents?: Record<string, stri
 
         for (const call of parsed.raw_calls) {
             const candidateIds = functionsByName.get(call.callee) ?? [];
-            let aggregatedCalls: LLMCall[] = [];
-            let aggregatedCount = 0;
+            let aggregatedLLMCalls: LLMCall[] = [];
+            let aggregatedImageCalls: ImageGenerationCall[] = [];
+            let aggregatedAudioCalls: AudioGenerationCall[] = [];
+            let llmCount = 0;
+            let imageCount = 0;
+            let audioCount = 0;
 
             for (const candidateId of candidateIds) {
-                const result = getTransitiveLLMCalls(candidateId);
-                aggregatedCalls = mergeLLMCalls(aggregatedCalls, result.uniqueCalls);
-                aggregatedCount += result.count;
+                const result = getTransitiveCalls(candidateId);
+                aggregatedLLMCalls = mergeLLMCalls(aggregatedLLMCalls, result.uniqueLLMCalls);
+                aggregatedImageCalls = mergeImageCalls(aggregatedImageCalls, result.uniqueImageCalls);
+                aggregatedAudioCalls = mergeAudioCalls(aggregatedAudioCalls, result.uniqueAudioCalls);
+                llmCount += result.llmCount;
+                imageCount += result.imageCount;
+                audioCount += result.audioCount;
             }
 
-            if (aggregatedCalls.length > 0) {
+            if (aggregatedLLMCalls.length > 0 || aggregatedImageCalls.length > 0 || aggregatedAudioCalls.length > 0) {
                 targetFile.call_sites.push({
                     callee: call.callee,
                     position: call.position,
-                    llm_calls: dedupeLLMCalls(aggregatedCalls),
-                    is_cacheable: call.is_cacheable || aggregatedCalls.some((c) => c.is_cacheable),
-                    total_llm_calls: aggregatedCount,
+                    llm_calls: dedupeLLMCalls(aggregatedLLMCalls),
+                    image_calls: dedupeImageCalls(aggregatedImageCalls),
+                    audio_calls: dedupeAudioCalls(aggregatedAudioCalls),
+                    is_cacheable: call.is_cacheable || aggregatedLLMCalls.some((c) => c.is_cacheable),
+                    total_llm_calls: llmCount,
+                    total_image_calls: imageCount,
+                    total_audio_calls: audioCount,
                 });
             }
         }
