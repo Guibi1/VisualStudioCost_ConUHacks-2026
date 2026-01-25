@@ -113,7 +113,13 @@ export const verify_pr = workflow.define({
                       ...top3Files.map((file, index) => {
                           const positions =
                               file.positions.length > 0
-                                  ? file.positions.map((pos) => `line ${pos.row}`).join(", ")
+                                  ? file.positions
+                                        .slice(0, 5) // limit to first 5 positions
+                                        .map((pos) => {
+                                            const url = `https://github.com/${args.owner}/${args.repo}/blob/${commit_hash}/${file.filename}#L${pos.row}`;
+                                            return `[L${pos.row}:C${pos.col}](${url})`;
+                                        })
+                                        .join(", ")
                                   : "N/A";
 
                           return (
