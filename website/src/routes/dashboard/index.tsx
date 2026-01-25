@@ -8,6 +8,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
+import { Alert } from "@/components/ui/alert";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
@@ -95,25 +96,48 @@ function Dashboard() {
           <CardTitle>Alerts</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="deprecated" className="w-full">
+          <Tabs defaultValue="deprecated" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="deprecated">Deprecated Models</TabsTrigger>
-              <TabsTrigger value="loop">Loops</TabsTrigger>
-              <TabsTrigger value="thinking">Thinking</TabsTrigger>
-              <TabsTrigger value="caching">Caching</TabsTrigger>
+              <TabsTrigger value="deprecated">Alerte de deprecated model</TabsTrigger>
+              <TabsTrigger value="loop">Alerte de loop</TabsTrigger>
+              <TabsTrigger value="thinking">Alerte de thinking</TabsTrigger>
+              <TabsTrigger value="caching">Alerte de caching</TabsTrigger>
             </TabsList>
 
             <TabsContent value="deprecated">
-              <p className="text-sm text-muted-foreground">No deprecated model alerts yet.</p>
+              <div className="space-y-2">
+                <Alert variant="destructive">
+                  <p className="font-bold">Deprecated AI Model</p>
+                  <p>This commit uses an outdated AI model. Consider updating to v2.3.</p>
+                </Alert>
+              </div>
             </TabsContent>
+
             <TabsContent value="loop">
-              <p className="text-sm text-muted-foreground">No loop alerts yet.</p>
+              <div className="space-y-2">
+                <Alert variant="destructive">
+                  <p className="font-bold">Loop problem</p>
+                  <p>This commit has a loop.</p>
+                </Alert>
+              </div>
             </TabsContent>
+
             <TabsContent value="thinking">
-              <p className="text-sm text-muted-foreground">No thinking alerts yet.</p>
+              <div className="space-y-2">
+                <Alert variant="default">
+                  <p className="font-bold">Thinking problem</p>
+                  <p>This commit thinks.</p>
+                </Alert>
+              </div>
             </TabsContent>
+
             <TabsContent value="caching">
-              <p className="text-sm text-muted-foreground">No caching alerts yet.</p>
+              <div className="space-y-2">
+                <Alert variant="default">
+                  <p className="font-bold">Caching problem</p>
+                  <p>This commit could be done with cache.</p>
+                </Alert>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
