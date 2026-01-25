@@ -5,7 +5,7 @@ export const Route = createFileRoute("/")({ component: Page });
 
 function Page() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="flex h-full flex-col items-center justify-center px-6">
       <div className="max-w-xl text-center space-y-6">
         {/* Logo + title */}
         <div className="flex items-center justify-center gap-4">

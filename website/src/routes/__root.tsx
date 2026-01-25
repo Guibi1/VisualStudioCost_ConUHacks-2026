@@ -39,12 +39,14 @@ function RootDocument({ children }: { children: ReactNode }) {
                 <HeadContent />
             </head>
 
-            <body className="relative flex min-h-screen flex-col bg-background text-foreground">
+            <body className="relative flex h-screen flex-col bg-background text-foreground">
                 <ConvexProvider>
                     <RepoProvider>
                         <NavigationBar />
 
-                        {children}
+                        <main className="flex-1">
+                            {children}
+                        </main>
 
                         <TanStackDevtools
                             config={{ position: "bottom-right" }}
