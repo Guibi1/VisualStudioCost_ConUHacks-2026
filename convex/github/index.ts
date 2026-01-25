@@ -66,7 +66,7 @@ export const verify_pr = workflow.define({
             }),
         );
 
-        const withinLimits = total.calls < limits.calls && total.cost < limits.cost;
+        const withinLimits = total.calls <= limits.calls && total.cost <= limits.cost;
 
         const top3Files = analysis.files
             .map((file) => {
