@@ -84,6 +84,8 @@ interface PriceEntry {
     expiration_date?: string | null;
 }
 
+const DASHBOARD_URL = "https://vscost.com/dashboard";
+
 function formatLLMCalls(llmCalls: LLMCall[], totalCountOverride?: number): string {
     if (llmCalls.length === 0) {
         return "LLM call";
@@ -773,7 +775,9 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
 type TreeEntry =
     | { kind: "file"; file: FileAnalysisResult }
     | { kind: "group"; label: string; calls: TreeEntry[] }
-    | { kind: "call"; filePath: string; line: number; label: string; description: string; icon: vscode.ThemeIcon };
+    | { kind: "call"; filePath: string; line: number; label: string; description: string; icon: vscode.ThemeIcon }
+    | { kind: "spacer" }
+    | { kind: "cta" };
 
 class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
     private analysis: AnalysisResult;
@@ -792,6 +796,31 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
     }
 
     getTreeItem(element: TreeEntry): vscode.TreeItem {
+        if (element.kind === "cta") {
+            const treeItem = new vscode.TreeItem("Open Dashboard", vscode.TreeItemCollapsibleState.None);
+            treeItem.iconPath = new vscode.ThemeIcon("link-external");
+            treeItem.command = {
+                command: "vscost.openDashboard",
+                title: "Open dashboard",
+            };
+            return treeItem;
+        }
+
+        if (element.kind === "spacer") {
+            const treeItem = new vscode.TreeItem(" ", vscode.TreeItemCollapsibleState.None);
+            treeItem.contextValue = "spacer";
+            treeItem.iconPath = undefined;
+            treeItem.command = undefined;
+            treeItem.tooltip = undefined;
+            treeItem.description = " ";
+            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
+            treeItem.resourceUri = undefined;
+            // Add empty label plus a blank description to increase vertical space
+            treeItem.label = " ";
+            treeItem.description = " ";
+            return treeItem;
+        }
+
         if (element.kind === "file") {
             const treeItem = new vscode.TreeItem(
                 path.basename(element.file.file_path),
@@ -828,9 +857,10 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
 
     getChildren(element?: TreeEntry): TreeEntry[] {
         if (!element) {
-            return this.analysis.files
+            const fileEntries = this.analysis.files
                 .filter((file) => this.fileHasCalls(file))
                 .map((file) => ({ kind: "file", file }));
+            return [...fileEntries, { kind: "spacer" }, { kind: "spacer" }, { kind: "cta" }];
         }
 
         if (element.kind === "file") {
@@ -1113,7 +1143,6 @@ class DiagnosticsTreeDataProvider implements vscode.TreeDataProvider<DiagnosticE
         return [];
     }
 }
-
 class QuickPicksWebviewProvider implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
     private readonly pricesPath: string;
@@ -1521,6 +1550,11 @@ export async function activate(context: vscode.ExtensionContext) {
         });
 
         context.subscriptions.push(openTabDisposable);
+
+        const openDashboardCommand = vscode.commands.registerCommand("vscost.openDashboard", () => {
+            vscode.env.openExternal(vscode.Uri.parse(DASHBOARD_URL));
+        });
+        context.subscriptions.push(openDashboardCommand);
 
         const diagnostics = vscode.languages.createDiagnosticCollection("VSCost");
         context.subscriptions.push(diagnostics);
