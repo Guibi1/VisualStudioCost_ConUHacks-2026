@@ -186,7 +186,7 @@ export const get_main_commits_with_code = action({
             // 2️⃣ For each commit, fetch changed files + code
             const results = await Promise.all(
                 commits
-                    .filter((commit) => existant_commits.includes(commit.sha))
+                    .filter((commit) => !existant_commits.includes(commit.sha))
                     .map(async (commit) => {
                         const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
                             owner: args.owner,
