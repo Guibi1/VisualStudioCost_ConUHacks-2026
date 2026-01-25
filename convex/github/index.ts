@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { aggregateCostsCalls } from "vscost-parser";
+import type { AnalysisResult } from "vscost-parser";
 import { workflow } from "..";
 import { api } from "../_generated/api";
 
@@ -164,3 +164,28 @@ export const verify_pr = workflow.define({
         }
     },
 });
+
+export function aggregateCostsCalls(analysis: AnalysisResult) {
+    return analysis.files.reduce(
+        (acc, file) => {
+            const functions = Array.isArray(file?.functions) ? file.functions : [];
+            const fileTotals = functions.reduce(
+                (fnAcc, fn) => {
+                    const callsllm = Array.isArray(fn?.llm_calls) ? fn.llm_calls : [];
+                    const callsvoice = Array.isArray(fn?.audio_calls) ? fn.audio_calls : [];
+                    const callsimage = Array.isArray(fn?.image_calls) ? fn.image_calls : [];
+                    const costllm = callsllm.reduce((callAcc, call) => callAcc + (call?.cost_per_1M_tokens ?? 0), 0);
+                    const costvoice = callsvoice.reduce((callAcc, call) => callAcc + (call?.cost_per_unit ?? 0), 0);
+                    const costimage = callsimage.reduce((callAcc, call) => callAcc + (call?.cost_per_image ?? 0), 0);
+                    return {
+                        cost: fnAcc.cost + costllm + costvoice + costimage,
+                        calls: fnAcc.calls + callsllm.length + callsvoice.length + callsimage.length,
+                    };
+                },
+                { cost: 0, calls: 0 },
+            );
+            return { cost: acc.cost + fileTotals.cost, calls: acc.calls + fileTotals.calls };
+        },
+        { cost: 0, calls: 0 },
+    );
+}

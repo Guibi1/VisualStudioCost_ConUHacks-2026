@@ -44,9 +44,7 @@ function RootDocument({ children }: { children: ReactNode }) {
                     <RepoProvider>
                         <NavigationBar />
 
-                        <main className="flex-1">
-                            {children}
-                        </main>
+                        <main className="flex-1">{children}</main>
 
                         <TanStackDevtools
                             config={{ position: "bottom-right" }}
