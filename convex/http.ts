@@ -44,7 +44,7 @@ http.route({
 
         switch (event) {
             case "installation":
-                if (payload.action === "added") {
+                if (payload.action === "created") {
                     for (const repository of payload.repositories) {
                         const [owner, repo] = repository.full_name.split("/");
                         if (!owner || !repo) {
@@ -56,7 +56,7 @@ http.route({
                             repo,
                         });
                     }
-                } else if (payload.action === "removed") {
+                } else if (payload.action === "deleted") {
                     for (const repository of payload.repositories) {
                         const [owner, repo] = repository.full_name.split("/");
                         await ctx.runMutation(api.repositories.toggle, {
