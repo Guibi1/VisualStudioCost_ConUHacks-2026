@@ -638,23 +638,23 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
                 if (llmCall.cost_per_1M_tokens !== null) {
                     info.push(`$${llmCall.cost_per_1M_tokens.toFixed(2)}/1M tokens`);
                     if (llmCall.cost_per_1M_tokens > 5.0) {
-                        info.push(" Costly");
+                        info.push(" 🤑 Costly");
                     } else {
-                        info.push(" Affordable");
+                        info.push(" ✅ Affordable");
                     }
                 }
 
                 if (llmCall.is_deprecated) {
-                    info.push(" Deprecated");
+                    info.push(" 👴 Deprecated");
                 }
                 if (llmCall.loop_info.is_in_loop) {
-                    info.push(` In ${llmCall.loop_info.loop_type} loop`);
+                    info.push(` 🔁 In ${llmCall.loop_info.loop_type} loop`);
                 }
                 if (llmCall.is_cacheable) {
-                    info.push(" Cacheable");
+                    info.push(" ⚠️ Cacheable");
                 }
                 if (llmCall.supports_thinking) {
-                    info.push(" Thinking");
+                    info.push(" 💸 Thinking");
                 }
 
                 const title = `[LLM] ${llmCall.model} | ${info.join(" | ")}`;
@@ -748,7 +748,7 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
                 infoParts.push(formatAudioCalls(callSite.audio_calls, callSite.total_audio_calls));
             }
             if (callSite.is_cacheable) {
-                infoParts.push("Cacheable");
+                infoParts.push("⚠️ Cacheable");
             }
             const title = infoParts.join(" | ");
 
@@ -1289,9 +1289,9 @@ class QuickPicksWebviewProvider implements vscode.WebviewViewProvider {
         `;
 
         const content = [
-            renderCategory("CHEAPEST", "CHEAPEST", cheapestModels, true),
-            renderCategory("DEPRECATED", "DEPRECATED", deprecatedModels),
-            renderCategory("CASH BURNERS", "CASH BURNERS", expensiveModels),
+            renderCategory("🤑", "CHEAPEST", cheapestModels, true),
+            renderCategory("💀", "DEPRECATED", deprecatedModels),
+            renderCategory("🔥", "CASH BURNERS", expensiveModels),
         ].join("");
 
         return `<!DOCTYPE html>
