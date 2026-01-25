@@ -5,8 +5,9 @@ import { v } from "convex/values";
 import JSZip from "jszip";
 import { Octokit } from "octokit";
 import { analyze_code } from "vscost-parser";
-import { action } from "../_generated/server";
 import { api } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
+import { action } from "../_generated/server";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
@@ -192,14 +193,18 @@ export const get_main_commits_with_code = action({
                 per_page: limit,
             });
 
-            const existant_commits: string[] =
-                (await ctx.runQuery(api.repositories.complete_commits_query, { owner: args.owner, repo: args.repo })) ??
-                [];
+            const existant_commits: Doc<"complete_commits">[] = await ctx.runQuery(
+                api.repositories.complete_commits_query,
+                {
+                    owner: args.owner,
+                    repo: args.repo,
+                },
+            );
 
             // 2️⃣ For each commit, fetch changed files + code
             const results = await Promise.all(
                 commits
-                    .filter((commit) => !existant_commits.includes(commit.sha))
+                    .filter((commit) => !existant_commits.map((c) => c.sha).includes(commit.sha))
                     .map(async (commit) => {
                         const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
                             owner: args.owner,

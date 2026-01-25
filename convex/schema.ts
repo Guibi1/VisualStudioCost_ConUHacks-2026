@@ -23,6 +23,7 @@ export default defineSchema({
     commits: defineTable({
         owner: v.string(),
         repo: v.string(),
+        date: v.number(),
         commit_hash: v.string(),
         analysis: v.string(),
     })

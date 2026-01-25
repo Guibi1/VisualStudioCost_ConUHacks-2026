@@ -57,7 +57,7 @@ function RouteComponent() {
 }
 
 function NoRepoGuardPage() {
-    const [repo] = useRepo();
+    const repo = useRepo();
     if (repo) return <Outlet />;
 
     return (
