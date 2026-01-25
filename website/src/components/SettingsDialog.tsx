@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { api } from "vscost-convex/_generated/api";
 
 import { useRepo } from "@/components/RepoProvider";
@@ -21,11 +21,20 @@ import { Slider } from "@/components/ui/slider";
 export default function SettingsDialog() {
     const callsId = useId();
     const costId = useId();
-    const [repo] = useRepo();
+    const repo = useRepo();
     const setSettings = useMutation(api.repositories.setSettings);
-    const limits = useQuery(api.repositories.limits, repo ?? "skip");
-    const [callsLimit, setCallsLimit] = useState(limits?.calls ?? 0);
-    const [costLimit, setCostLimit] = useState(limits?.cost ?? 0);
+    const limits = useQuery(api.repositories.limits, repo ? { owner: repo.owner, repo: repo.repo } : "skip");
+    const [callsLimit, setCallsLimit] = useState(limits?.calls ?? -1);
+    const [costLimit, setCostLimit] = useState(limits?.cost ?? -1);
+
+    useEffect(() => {
+        if (limits && callsLimit === -1) {
+            setCallsLimit(limits.calls);
+        }
+        if (limits && costLimit === -1) {
+            setCostLimit(limits.cost);
+        }
+    }, [limits, callsLimit, costLimit]);
 
     if (!limits || !repo) {
         return <Button disabled>Open Settings Dialog</Button>;
@@ -77,9 +86,17 @@ export default function SettingsDialog() {
 
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setSettings({ ...repo, callsLimit, costLimit })}>
-                        Save
-                    </AlertDialogAction>
+                    <AlertDialogCancel
+                        render={
+                            <AlertDialogAction
+                                onClick={() =>
+                                    setSettings({ owner: repo.owner, repo: repo.repo, callsLimit, costLimit })
+                                }
+                            >
+                                Save
+                            </AlertDialogAction>
+                        }
+                    />
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

@@ -30,17 +30,18 @@ export const getUserRepos = query({
     },
 });
 
-export const getCommit = query({
+export const getCommits = query({
     args: {
-        hash: v.string(),
+        owner: v.string(),
+        repo: v.string(),
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
         if (!user) return null;
         return await ctx.db
             .query("commits")
-            .withIndex("by_hash", (q) => q.eq("commit_hash", args.hash))
-            .unique();
+            .withIndex("by_repo", (q) => q.eq("owner", args.owner).eq("repo", args.repo))
+            .collect();
     },
 });
 
@@ -119,7 +120,7 @@ export const addCommit = mutation({
             .withIndex("by_name", (q) => q.eq("owner", args.owner).eq("repo", args.repo))
             .first();
         if (!repository) return null;
-        await ctx.db.insert("commits", args);
+        await ctx.db.insert("commits", { ...args, date: Date.now() });
         await ctx.db.patch("repositories", repository._id, { latest: args.commit_hash });
     },
 });
@@ -179,7 +180,7 @@ export const complete_commits_query = query({
             .query("complete_commits")
             .withIndex("by_repo", (q) => q.eq("owner", args.owner).eq("repo", args.repo))
             .collect();
-        if (!commits) return null;
+        if (!commits) return [];
         return commits;
     },
 });

@@ -1,15 +1,16 @@
-import { useRepo } from "@/components/RepoProvider";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useMemo } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "vscost-convex/_generated/api";
-import { type AnalysisResult } from "vscost-parser";
+import type { AnalysisResult } from "vscost-parser";
+import { useRepo } from "@/components/RepoProvider";
+import SettingsDialog from "@/components/SettingsDialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
@@ -35,41 +36,88 @@ const progressColorClass =
           ? "[&>div]:bg-yellow-500"
           : "[&>div]:bg-blue-600";
 
-const commitData = [
-    { date: "2026-01-01", repo: 24.87, repo2: 19.42 },
-    { date: "2026-01-02", repo: 27.13, repo2: 21.05 },
-    { date: "2026-01-03", repo: 25.64, repo2: 22.31 },
-    { date: "2026-01-04", repo: 28.02, repo2: 23.88 },
-]; //TODO remplacer data exemple chatgpt en connectant avec emil
-
 function Dashboard() {
-    const [repo] = useRepo();
-    const commit = useQuery(api.repositories.getCommit, repo?.latest ? { hash: repo.latest } : "skip");
-    const analysis: AnalysisResult = useMemo(() => (commit ? JSON.parse(commit.analysis) : null), [commit]);
+    const repo = useRepo();
+    const rawCommits = useQuery(
+        api.repositories.getCommits,
+        repo?.latest ? { owner: repo.owner, repo: repo.repo } : "skip",
+    );
+    const commits = useMemo(
+        () =>
+            rawCommits
+                ? rawCommits.map((c) => {
+                      const analysis = JSON.parse(c.analysis) as AnalysisResult;
+                      const total = analysis.files.reduce(
+                          (acc, file) => {
+                              const functions = Array.isArray(file?.functions) ? file.functions : [];
+                              const fileTotals = functions.reduce(
+                                  (fnAcc, fn) => {
+                                      const calls = Array.isArray(fn?.llm_calls) ? fn.llm_calls : [];
+                                      const cost = calls.reduce(
+                                          (callAcc, call) => callAcc + (call?.cost_per_1M_tokens ?? 0),
+                                          0,
+                                      );
+                                      return { cost: fnAcc.cost + cost, calls: fnAcc.calls + calls.length };
+                                  },
+                                  { cost: 0, calls: 0 },
+                              );
+                              return { cost: acc.cost + fileTotals.cost, calls: acc.calls + fileTotals.calls };
+                          },
+                          { cost: 0, calls: 0 },
+                      );
+                      return {
+                          ...c,
+                          date: new Date(c.date).toDateString(),
+                          analysis,
+                          total,
+                          limits: { cost: repo?.costLimit ?? 0, calls: repo?.callsLimit ?? 0 },
+                      };
+                  })
+                : [],
+        [rawCommits, repo],
+    );
 
-    if (!repo || !commit || !analysis) return null;
+    if (!repo || !commits) return null;
+    console.log(commits);
 
     return (
-        <div className="space-y-8 p-8 bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-white">
+        <div className="space-y-8 bg-linear-to-br from-neutral-950 via-neutral-900 to-neutral-950 p-8 text-white">
             {/* Budget & Chart */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <Card className="bg-neutral-900/80 text-white border border-white/10 shadow-md hover:shadow-lg transition-shadow">
+                <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
                     <CardHeader>
                         <CardTitle>Coût par utilisateur par commit</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={commitData} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
+                                <AreaChart data={commits} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                                     <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
                                     <YAxis
                                         stroke="rgba(255,255,255,0.5)"
                                         tick={{ fontSize: 12 }}
                                         tickFormatter={(value) => `${value.toFixed(2)}$`}
+                                        domain={[
+                                            "dataMin",
+                                            Math.max(
+                                                commits.reduce((acc, commit) => acc + commit.total.cost, 0),
+                                                commits.reduce((acc, commit) => acc + commit.total.calls, 0),
+                                            ),
+                                        ]}
+                                        allowDataOverflow
                                     />
                                     <Tooltip
-                                        formatter={(value: number) => `${value.toFixed(2)}$`}
+                                        formatter={(value: number | undefined, _name: string | undefined, payload) => {
+                                            switch (payload?.dataKey) {
+                                                case "total.cost":
+                                                    return [`${value?.toFixed(2)}$`, "Repo $/1M tokens"];
+                                                case "total.calls":
+                                                    return [value?.toString(), "Callsites"];
+                                                default:
+                                                    return undefined;
+                                            }
+                                        }}
                                         contentStyle={{
                                             backgroundColor: "#0f172a",
                                             border: "1px solid rgba(255,255,255,0.1)",
@@ -78,38 +126,64 @@ function Dashboard() {
                                         }}
                                         labelStyle={{ color: "rgba(255,255,255,0.6)" }}
                                     />
-                                    <Line
+                                    <defs>
+                                        <linearGradient id="fillCost" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.1} />
+                                        </linearGradient>
+                                        <linearGradient id="fillCalls" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0.1} />
+                                        </linearGradient>
+                                    </defs>
+                                    <Area
+                                        dataKey="total.cost"
                                         type="monotone"
-                                        dataKey="repo"
-                                        stroke="#3b82f6"
-                                        strokeWidth={2.5}
-                                        dot={{ r: 3 }}
-                                        activeDot={{ r: 5 }}
-                                        name="Repo $/commit"
+                                        fill="url(#fillCost)"
+                                        fillOpacity={0.4}
+                                        stroke="var(--chart-1)"
+                                        stackId="a"
+                                    />
+                                    <Area
+                                        dataKey="total.calls"
+                                        type="monotone"
+                                        fill="url(#fillCalls)"
+                                        fillOpacity={0.4}
+                                        stroke="var(--chart-2)"
+                                        stackId="b"
                                     />
 
-                                    <Line
-                                        type="monotone"
-                                        dataKey="repo2"
-                                        stroke="#10b981"
-                                        strokeWidth={2.5}
-                                        dot={{ r: 3 }}
-                                        activeDot={{ r: 5 }}
-                                        name="Repo2 $/commit"
+                                    <Area
+                                        dataKey="limits.cost"
+                                        stroke="var(--destructive)"
+                                        fill="transparent"
+                                        strokeDasharray="5 5"
+                                        activeDot={{ r: 0 }}
                                     />
-                                </LineChart>
+                                    <Area
+                                        dataKey="limits.calls"
+                                        stroke="var(--destructive)"
+                                        fill="transparent"
+                                        strokeDasharray="5 5"
+                                        activeDot={{ r: 0 }}
+                                    />
+                                </AreaChart>
                             </ResponsiveContainer>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-neutral-900/80 text-white border border-white/10 shadow-md hover:shadow-lg transition-shadow">
+                <Card className="border border-white/10 bg-neutral-900/80 text-white shadow-md transition-shadow hover:shadow-lg">
                     <CardHeader>
                         <CardTitle>Utilisation budget</CardTitle>
+                        <CardAction>
+                            <SettingsDialog />
+                        </CardAction>
                     </CardHeader>
+
                     <CardContent className="grid h-full grid-rows-[1fr_auto_auto] gap-3">
                         <div
-                            className={`flex items-center justify-center text-center text-3xl font-bold ${
+                            className={`flex items-center justify-center text-center font-bold text-3xl ${
                                 remainingBudget >= 0 ? "text-green-700" : "text-red-700"
                             }`}
                         >
@@ -118,10 +192,10 @@ function Dashboard() {
 
                         <Progress
                             value={Math.min(budgetValue, 100)}
-                            className={`${progressColorClass} bg-[var(--background)] [&>div]:rounded-md`}
+                            className={`${progressColorClass} bg-background [&>div]:rounded-md`}
                         />
 
-                        <p className="text-sm text-muted-foreground text-center">
+                        <p className="text-center text-muted-foreground text-sm">
                             {budgetValue}% du budget est utilisé · {budgetLabel}
                         </p>
                     </CardContent>

@@ -5,8 +5,9 @@ import { v } from "convex/values";
 import JSZip from "jszip";
 import { Octokit } from "octokit";
 import { analyze_code } from "vscost-parser";
-import { action } from "../_generated/server";
 import { api } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
+import { action } from "../_generated/server";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
@@ -114,11 +115,11 @@ export const completeCommitCheck = action({
         estimated_cost: v.number(),
         limit_cost: v.number(),
         limit_calls: v.number(),
-        summary : v.string()
+        summary: v.string(),
     },
     handler: async (_ctx, args) => {
         try {
-          const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
+            const installationOctokit = await getInstallationOctokit(args.owner, args.repo);
 
             await installationOctokit.rest.checks.update({
                 owner: args.owner,
@@ -127,15 +128,17 @@ export const completeCommitCheck = action({
                 status: "completed",
                 completed_at: new Date().toISOString(),
                 output: {
-                    title: args.success ? "✅ This commit keeps the project within the configured limits."
-                    : "⚠️ This commit makes the project exceed at least one configured limit.",
-                  summary: [`LLM Calls : ${args.estimated_calls}, Limit : ${args.limit_calls}`,
-                    `Estimated Cost : ${args.estimated_cost}, Limit : ${args.limit_cost}`,
-                          "",
-                          args.summary,
-                          "",
-                          "Done with automated review.",
-                        ].join("\n"),
+                    title: args.success
+                        ? "✅ This commit keeps the project within the configured limits."
+                        : "⚠️ This commit makes the project exceed at least one configured limit.",
+                    summary: [
+                        `LLM Calls : ${args.estimated_calls}, Limit : ${args.limit_calls}`,
+                        `Estimated Cost : ${args.estimated_cost}, Limit : ${args.limit_cost}`,
+                        "",
+                        args.summary,
+                        "",
+                        "Done with automated review.",
+                    ].join("\n"),
                 },
                 conclusion: args.success ? "success" : "failure",
             });
@@ -192,14 +195,18 @@ export const get_main_commits_with_code = action({
                 per_page: limit,
             });
 
-            const existant_commits: string[] =
-                (await ctx.runQuery(api.repositories.complete_commits_query, { owner: args.owner, repo: args.repo })) ??
-                [];
+            const existant_commits: Doc<"complete_commits">[] = await ctx.runQuery(
+                api.repositories.complete_commits_query,
+                {
+                    owner: args.owner,
+                    repo: args.repo,
+                },
+            );
 
             // 2️⃣ For each commit, fetch changed files + code
             const results = await Promise.all(
                 commits
-                    .filter((commit) => !existant_commits.includes(commit.sha))
+                    .filter((commit) => !existant_commits.map((c) => c.sha).includes(commit.sha))
                     .map(async (commit) => {
                         const { data: fullCommit } = await installationOctokit.rest.repos.getCommit({
                             owner: args.owner,
