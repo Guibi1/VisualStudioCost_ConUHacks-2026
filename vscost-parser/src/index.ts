@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import ts from "typescript";
-import prices_llm from "../assets/prices_llm.ts";
+import prices_llm from "../assets/prices_llm.js";
 import type { AnalysisResult, FileAnalysisResult, FunctionInfo, LLMCall, LoopInfo } from "./types.js";
 
 export type {
