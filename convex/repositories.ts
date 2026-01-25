@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { getAuthUser } from "./auth";
 
 export const limits = query({
     args: {
@@ -13,6 +14,38 @@ export const limits = query({
             .first();
         if (!repository || repository.enabled === false) return null;
         return { cost: repository.costLimit, calls: repository.callsLimit };
+    },
+});
+
+export const getUserRepos = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getAuthUser(ctx);
+        if (!user) return [];
+        return await ctx.db
+            .query("repositories")
+            .withIndex("by_owner", (q) => q.eq("owner", user.username))
+            .collect();
+    },
+});
+
+export const setSettings = mutation({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        costLimit: v.number(),
+        callsLimit: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const repository = await ctx.db
+            .query("repositories")
+            .withIndex("by_name", (q) => q.eq("owner", args.owner).eq("repo", args.repo))
+            .first();
+        if (!repository) return null;
+        return await ctx.db.patch("repositories", repository._id, {
+            costLimit: args.costLimit,
+            callsLimit: args.callsLimit,
+        });
     },
 });
 

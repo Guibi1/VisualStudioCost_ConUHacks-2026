@@ -4,7 +4,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import type { ReactNode } from "react";
 import ConvexProvider from "@/components/ConvexProvider";
 import NavigationBar from "@/components/NavigationBar";
-
+import RepoProvider from "@/components/RepoProvider";
 import stylesheet from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -39,16 +39,18 @@ function RootDocument({ children }: { children: ReactNode }) {
                 <HeadContent />
             </head>
 
-            <body className="dark relative flex min-h-screen flex-col">
+            <body className="relative flex min-h-screen flex-col bg-background text-foreground">
                 <ConvexProvider>
-                    <NavigationBar />
+                    <RepoProvider>
+                        <NavigationBar />
 
-                    {children}
+                        {children}
 
-                    <TanStackDevtools
-                        config={{ position: "bottom-right" }}
-                        plugins={[{ name: "Tanstack Router", render: <TanStackRouterDevtoolsPanel /> }]}
-                    />
+                        <TanStackDevtools
+                            config={{ position: "bottom-right" }}
+                            plugins={[{ name: "Tanstack Router", render: <TanStackRouterDevtoolsPanel /> }]}
+                        />
+                    </RepoProvider>
                 </ConvexProvider>
                 <Scripts />
             </body>
