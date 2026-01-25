@@ -3,7 +3,14 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Alert } from "@/components/ui/alert";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item"
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
@@ -105,7 +112,7 @@ function Dashboard() {
                 remainingBudget >= 0 ? "text-green-700" : "text-red-700"
               }`}
             >
-              {budgetStatusText}
+              {budgetStatusText} 
             </div>
 
             <Progress
@@ -135,41 +142,82 @@ function Dashboard() {
             </TabsList>
 
             <TabsContent value="deprecated">
-              <div className="space-y-2">
-                <Alert variant="destructive">
-                  <p className="font-bold">Deprecated AI Model</p>
-                  <p>This commit uses an outdated AI model. Consider updating to v2.3.</p>
-                </Alert>
-              </div>
+                <div className="space-y-3">
+                    <Item variant="outline">
+                    <ItemContent>
+                        <ItemTitle>Deprecated AI Model</ItemTitle>
+                        <ItemDescription>
+                        Commit uses an outdated AI model. Upgrade recommended.
+                        </ItemDescription>
+                    </ItemContent>
+
+                    <ItemActions>
+                        <Button variant="outline" size="sm">
+                        View commit
+                        </Button>
+                    </ItemActions>
+                    </Item>
+                </div>
             </TabsContent>
 
+
             <TabsContent value="loop">
-              <div className="space-y-2">
-                <Alert variant="destructive">
-                  <p className="font-bold">Loop problem</p>
-                  <p>This commit has a loop.</p>
-                </Alert>
-              </div>
+                <div className="space-y-3">
+                    <Item variant="outline">
+                    <ItemContent>
+                        <ItemTitle>Loop problem</ItemTitle>
+                        <ItemDescription>
+                        Repeated execution detected without state change.
+                        </ItemDescription>
+                    </ItemContent>
+
+                    <ItemActions>
+                        <Button variant="outline" size="sm">
+                        Inspect
+                        </Button>
+                    </ItemActions>
+                    </Item>
+                </div>
             </TabsContent>
 
             <TabsContent value="thinking">
-              <div className="space-y-2">
-                <Alert variant="default">
-                  <p className="font-bold">Thinking problem</p>
-                  <p>This commit thinks.</p>
-                </Alert>
-              </div>
+                <div className="space-y-3">
+                    <Item variant="outline">
+                    <ItemContent>
+                        <ItemTitle>Thinking problem</ItemTitle>
+                        <ItemDescription>
+                        Model spent unusually long in reasoning phase.
+                        </ItemDescription>
+                    </ItemContent>
+
+                    <ItemActions>
+                        <Button variant="outline" size="sm">
+                        Details
+                        </Button>
+                    </ItemActions>
+                    </Item>
+                </div>
             </TabsContent>
 
             <TabsContent value="caching">
-              <div className="space-y-2">
-                <Alert variant="default">
-                  <p className="font-bold">Caching problem</p>
-                  <p>This commit could be done with cache.</p>
-                </Alert>
-              </div>
+                <div className="space-y-3">
+                    <Item variant="outline">
+                    <ItemContent>
+                        <ItemTitle>Cache Opportunity</ItemTitle>
+                        <ItemDescription>
+                        Similar requests detected. Caching could reduce cost.
+                        </ItemDescription>
+                    </ItemContent>
+
+                    <ItemActions>
+                        <Button variant="outline" size="sm">
+                        Enable cache
+                        </Button>
+                    </ItemActions>
+                    </Item>
+                </div>
             </TabsContent>
-          </Tabs>
+        </Tabs>
         </CardContent>
       </Card>
     </div>
