@@ -13,7 +13,7 @@ async function greetUser() {
 
 async function compareResponses(prompt: string) {
   const response_gpt_llm = await ai.generateText({
-    model: "gpt-4",
+    model: "gpt-5-pro",
     prompt: [
       { role: "system", content: "You are a helpful assistant." },
       { role: "user", content: prompt },
@@ -22,10 +22,10 @@ async function compareResponses(prompt: string) {
   console.log(response_gpt_llm);
 
   const response_gemini_llm = await ai.generateText({
-    model: "google/gemini-2.5-flash-lite-preview-09-2025",
+    model: "anthropic/claude-opus-4.5",
     prompt: [
       { role: "system", content: "You are a helpful assistant." },
-      { role: "user", content: prompt },
+      { role: "user", content: prompt }, 
     ],
   });
   console.log(response_gemini_llm);
