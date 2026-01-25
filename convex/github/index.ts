@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { aggregateCostsCalls } from "vscost-parser";
 import { workflow } from "..";
 import { api } from "../_generated/api";
 
@@ -35,22 +36,7 @@ export const verify_pr = workflow.define({
             analysis: JSON.stringify(analysis),
         });
 
-        const files = Array.isArray(analysis?.files) ? analysis.files : [];
-        const total = files.reduce(
-            (acc, file) => {
-                const functions = Array.isArray(file?.functions) ? file.functions : [];
-                const fileTotals = functions.reduce(
-                    (fnAcc, fn) => {
-                        const calls = Array.isArray(fn?.llm_calls) ? fn.llm_calls : [];
-                        const cost = calls.reduce((callAcc, call) => callAcc + (call?.cost_per_1M_tokens ?? 0), 0);
-                        return { cost: fnAcc.cost + cost, calls: fnAcc.calls + calls.length };
-                    },
-                    { cost: 0, calls: 0 },
-                );
-                return { cost: acc.cost + fileTotals.cost, calls: acc.calls + fileTotals.calls };
-            },
-            { cost: 0, calls: 0 },
-        );
+        const total = aggregateCostsCalls(analysis);
 
         const complete_commits = await ctx.runAction(api.github.actions.get_main_commits_with_code, {
             owner,
@@ -82,7 +68,7 @@ export const verify_pr = workflow.define({
 
         const withinLimits = total.calls < limits.calls && total.cost < limits.cost;
 
-        const top3Files = files
+        const top3Files = analysis.files
             .map((file) => {
                 const functions = Array.isArray(file?.functions) ? file.functions : [];
 
@@ -127,7 +113,7 @@ export const verify_pr = workflow.define({
                       ...top3Files.map((file, index) => {
                           const positions =
                               file.positions.length > 0
-                                  ? file.positions.map((pos) => `(${pos.row}, ${pos.col})`).join(", ")
+                                  ? file.positions.map((pos) => `line ${pos.row}`).join(", ")
                                   : "N/A";
 
                           return (
@@ -165,9 +151,6 @@ export const verify_pr = workflow.define({
                 withinLimits
                     ? "✅ This pull request is within the configured limits."
                     : "⚠️ This pull request exceeds at least one configured limit.",
-                "",
-                `LLM Calls : ${total.calls}, Limit : ${limits.calls}`,
-                `Estimated Cost : ${total.cost}, Limit : ${limits.calls}`,
                 "",
                 expensiveFilesSummary,
             ].join("\n");
