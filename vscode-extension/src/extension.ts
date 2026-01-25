@@ -663,7 +663,14 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
 
 type DiagnosticEntry =
     | { kind: "category"; label: string; severity: "error" | "warning" | "info"; items: DiagnosticEntry[] }
-    | { kind: "item"; label: string; description: string; filePath: string; line: number; severity: "error" | "warning" | "info" };
+    | {
+          kind: "item";
+          label: string;
+          description: string;
+          filePath: string;
+          line: number;
+          severity: "error" | "warning" | "info";
+      };
 
 class DiagnosticsTreeDataProvider implements vscode.TreeDataProvider<DiagnosticEntry> {
     private analysis: AnalysisResult;
@@ -683,7 +690,9 @@ class DiagnosticsTreeDataProvider implements vscode.TreeDataProvider<DiagnosticE
         if (element.kind === "category") {
             const treeItem = new vscode.TreeItem(
                 element.label,
-                element.items.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None
+                element.items.length > 0
+                    ? vscode.TreeItemCollapsibleState.Expanded
+                    : vscode.TreeItemCollapsibleState.None,
             );
             const iconMap = { error: "error", warning: "warning", info: "info" };
             treeItem.iconPath = new vscode.ThemeIcon(iconMap[element.severity]);
@@ -694,8 +703,15 @@ class DiagnosticsTreeDataProvider implements vscode.TreeDataProvider<DiagnosticE
         const treeItem = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
         treeItem.description = element.description;
         const iconMap = { error: "circle-filled", warning: "circle-filled", info: "circle-filled" };
-        const colorMap = { error: "errorForeground", warning: "editorWarning.foreground", info: "editorInfo.foreground" };
-        treeItem.iconPath = new vscode.ThemeIcon(iconMap[element.severity], new vscode.ThemeColor(colorMap[element.severity]));
+        const colorMap = {
+            error: "errorForeground",
+            warning: "editorWarning.foreground",
+            info: "editorInfo.foreground",
+        };
+        treeItem.iconPath = new vscode.ThemeIcon(
+            iconMap[element.severity],
+            new vscode.ThemeColor(colorMap[element.severity]),
+        );
         treeItem.command = {
             command: "vscost.openLocation",
             title: "Open location",
@@ -836,11 +852,12 @@ class QuickPicksWebviewProvider implements vscode.WebviewViewProvider {
             .slice(0, 3);
 
         // Top 3 most expensive
-        const expensiveModels = [...activeModels]
-            .sort((a, b) => b.price - a.price)
-            .slice(0, 3);
+        const expensiveModels = [...activeModels].sort((a, b) => b.price - a.price).slice(0, 3);
 
-        const renderCard = (model: { id: string; name: string; provider: string; price: number; expirationDate?: string | null }, copyable = false) => {
+        const renderCard = (
+            model: { id: string; name: string; provider: string; price: number; expirationDate?: string | null },
+            copyable = false,
+        ) => {
             const modelName = model.id.split("/").pop() || model.id;
             const priceOrExpiry = model.expirationDate
                 ? `expires: ${model.expirationDate}`
@@ -989,10 +1006,7 @@ class VSCostCodeActionProvider implements vscode.CodeActionProvider {
     private readonly recommendations: Map<string, { current: string; recommended: string }>;
     private readonly ignoredThinking: Set<string>;
 
-    constructor(
-        recommendations: Map<string, { current: string; recommended: string }>,
-        ignoredThinking: Set<string>,
-    ) {
+    constructor(recommendations: Map<string, { current: string; recommended: string }>, ignoredThinking: Set<string>) {
         this.recommendations = recommendations;
         this.ignoredThinking = ignoredThinking;
     }
@@ -1130,7 +1144,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         const quickPicksProvider = new QuickPicksWebviewProvider(pricesPath, analysis);
         context.subscriptions.push(
-            vscode.window.registerWebviewViewProvider("vscost.recommendations", quickPicksProvider)
+            vscode.window.registerWebviewViewProvider("vscost.recommendations", quickPicksProvider),
         );
 
         const openLocationCommand = vscode.commands.registerCommand(
@@ -1142,19 +1156,19 @@ export async function activate(context: vscode.ExtensionContext) {
                 if (typeof line === "number" && !Number.isNaN(line)) {
                     const pos = new vscode.Position(line, 0);
                     editor.selection = new vscode.Selection(pos, pos);
-                    editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                    editor.revealRange(
+                        new vscode.Range(pos, pos),
+                        vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+                    );
                 }
             },
         );
         context.subscriptions.push(openLocationCommand);
 
         const openTabDisposable = vscode.commands.registerCommand("vscost.openCostTab", () => {
-            const panel = vscode.window.createWebviewPanel(
-                "vscostTab",
-                "VSCost",
-                vscode.ViewColumn.One,
-                { enableScripts: true },
-            );
+            const panel = vscode.window.createWebviewPanel("vscostTab", "VSCost", vscode.ViewColumn.One, {
+                enableScripts: true,
+            });
 
             panel.iconPath = {
                 light: vscode.Uri.joinPath(context.extensionUri, "assets", "vscost-tab-light.svg"),
@@ -1170,7 +1184,10 @@ export async function activate(context: vscode.ExtensionContext) {
                         const editor = await vscode.window.showTextDocument(doc, { preview: false });
                         const pos = new vscode.Position(message.line, 0);
                         editor.selection = new vscode.Selection(pos, pos);
-                        editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                        editor.revealRange(
+                            new vscode.Range(pos, pos),
+                            vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+                        );
                     } else {
                         await vscode.commands.executeCommand("vscode.open", uri);
                     }
@@ -1230,12 +1247,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
                         if (messages.length === 0) continue;
 
-                        const range = new vscode.Range(
-                            call.position.line,
-                            0,
-                            call.position.line,
-                            200,
-                        );
+                        const range = new vscode.Range(call.position.line, 0, call.position.line, 200);
                         const diag = new vscode.Diagnostic(range, messages.join(" · "), severity);
                         diag.source = "VSCost";
                         diag.code = "VSCost";
@@ -1261,13 +1273,10 @@ export async function activate(context: vscode.ExtensionContext) {
             ),
         );
 
-        const ignoreThinkingCommand = vscode.commands.registerCommand(
-            "vscost.ignoreThinking",
-            (key: string) => {
-                ignoredThinking.add(key);
-                updateDiagnostics();
-            },
-        );
+        const ignoreThinkingCommand = vscode.commands.registerCommand("vscost.ignoreThinking", (key: string) => {
+            ignoredThinking.add(key);
+            updateDiagnostics();
+        });
         context.subscriptions.push(ignoreThinkingCommand);
 
         let refreshInFlight: Promise<void> | null = null;

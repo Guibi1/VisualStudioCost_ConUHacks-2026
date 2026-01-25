@@ -43,7 +43,7 @@ function isTargetCallee(callee: string): boolean {
         callee === "openai.ChatCompletion.create" ||
         callee === "gemini.ChatCompletion.create" ||
         callee === "gemini.chat.completions.create" ||
-        callee === "ai.generateText"    ||
+        callee === "ai.generateText" ||
         callee === "anthropic.chat.completions.create" ||
         callee === "openRouter.chat.send"
     );

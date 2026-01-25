@@ -26,26 +26,26 @@ export default defineSchema({
         commit_hash: v.string(),
         analysis: v.string(),
     })
-      .index("by_hash", ["commit_hash"])
-      .index("by_repo", ["owner", "repo"]),
-  complete_commits: defineTable({
-      owner: v.string(),
+        .index("by_hash", ["commit_hash"])
+        .index("by_repo", ["owner", "repo"]),
+    complete_commits: defineTable({
+        owner: v.string(),
         repo: v.string(),
         sha: v.string(),
         message: v.string(),
         author: v.object({
-          name: v.optional(v.string()),
-          email: v.optional(v.string()),
-          date: v.optional(v.string()),
+            name: v.optional(v.string()),
+            email: v.optional(v.string()),
+            date: v.optional(v.string()),
         }),
         files: v.array(
-          v.object({
-            filename: v.string(),
-            patch: v.optional(v.string()),
-            additions: v.number(),
-            deletions: v.number(),
-            content: v.string(),
-          })
+            v.object({
+                filename: v.string(),
+                patch: v.optional(v.string()),
+                additions: v.number(),
+                deletions: v.number(),
+                content: v.string(),
+            }),
         ),
-      }).index("by_repo", ["owner", "repo"]),
+    }).index("by_repo", ["owner", "repo"]),
 });

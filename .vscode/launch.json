@@ -6,12 +6,8 @@
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/vscode-extension/dist/**/*.js"
-            ],
+            "args": ["--extensionDevelopmentPath=${workspaceFolder}/vscode-extension"],
+            "outFiles": ["${workspaceFolder}/vscode-extension/dist/**/*.js"],
             "preLaunchTask": "npm: watch (vscode-extension)"
         },
         {
@@ -23,9 +19,7 @@
                 "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension",
                 "--extensionTestsPath=${workspaceFolder}/vscode-extension/out/test/suite/index"
             ],
-            "outFiles": [
-                "${workspaceFolder}/vscode-extension/out/test/**/*.js"
-            ],
+            "outFiles": ["${workspaceFolder}/vscode-extension/out/test/**/*.js"],
             "preLaunchTask": "npm: watch-tests (vscode-extension)"
         }
     ]
