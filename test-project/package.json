@@ -1,0 +1,14 @@
+{
+    "name": "test-project",
+    "private": true,
+    "devDependencies": {
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "@openrouter/sdk": "^0.4.0",
+        "ai": "^6.0.49"
+    }
+}
