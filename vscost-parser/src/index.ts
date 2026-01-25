@@ -254,11 +254,7 @@ function getLoopInfo(node: ts.Node, sourceFile: ts.SourceFile): LoopInfo {
     };
 }
 
-function extractObjectProperty(
-    node: ts.CallExpression,
-    sourceFile: ts.SourceFile,
-    propName: string,
-): string | null {
+function extractObjectProperty(node: ts.CallExpression, sourceFile: ts.SourceFile, propName: string): string | null {
     for (const arg of node.arguments) {
         if (ts.isObjectLiteralExpression(arg)) {
             for (const prop of arg.properties) {
@@ -271,11 +267,7 @@ function extractObjectProperty(
     return null;
 }
 
-function extractNumericProperty(
-    node: ts.CallExpression,
-    sourceFile: ts.SourceFile,
-    propName: string,
-): number | null {
+function extractNumericProperty(node: ts.CallExpression, sourceFile: ts.SourceFile, propName: string): number | null {
     const value = extractObjectProperty(node, sourceFile, propName);
     if (value !== null) {
         const num = Number.parseFloat(value);

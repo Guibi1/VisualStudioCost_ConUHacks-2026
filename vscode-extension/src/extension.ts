@@ -138,7 +138,8 @@ function formatAudioCalls(audioCalls: AudioGenerationCall[], totalCountOverride?
     const perModel = audioCalls.map((call) => {
         const parts = [call.model];
         if (call.cost_per_unit !== null) {
-            const unitLabel = call.pricing_unit === "per_second" ? "/sec" : call.pricing_unit === "per_character" ? "/char" : "/req";
+            const unitLabel =
+                call.pricing_unit === "per_second" ? "/sec" : call.pricing_unit === "per_character" ? "/char" : "/req";
             parts.push(`$${call.cost_per_unit.toFixed(6)}${unitLabel}`);
         }
         return parts.join(" ");
@@ -703,7 +704,12 @@ class FunctionHintProvider implements vscode.CodeLensProvider {
                 const info: string[] = [];
 
                 if (audioCall.cost_per_unit !== null) {
-                    const unitLabel = audioCall.pricing_unit === "per_second" ? "/sec" : audioCall.pricing_unit === "per_character" ? "/1K chars" : "/req";
+                    const unitLabel =
+                        audioCall.pricing_unit === "per_second"
+                            ? "/sec"
+                            : audioCall.pricing_unit === "per_character"
+                              ? "/1K chars"
+                              : "/req";
                     info.push(`$${audioCall.cost_per_unit.toFixed(6)}${unitLabel}`);
                 }
                 if (audioCall.voice) info.push(`Voice: ${audioCall.voice}`);
@@ -867,7 +873,8 @@ class VSCostTreeDataProvider implements vscode.TreeDataProvider<TreeEntry> {
             }
 
             for (const cs of element.file.call_sites || []) {
-                const hasAny = (cs.llm_calls?.length || 0) + (cs.image_calls?.length || 0) + (cs.audio_calls?.length || 0) > 0;
+                const hasAny =
+                    (cs.llm_calls?.length || 0) + (cs.image_calls?.length || 0) + (cs.audio_calls?.length || 0) > 0;
                 if (hasAny) {
                     const types: string[] = [];
                     if (cs.llm_calls?.length) types.push("LLM");
