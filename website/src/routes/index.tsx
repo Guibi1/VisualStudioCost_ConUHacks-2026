@@ -18,7 +18,7 @@ function Page() {
           render={<Link to="/dashboard" />}
           nativeButton={false}
         >
-          Ouvrir Dashboard
+          Ouvrir le Dashboard
         </Button>
 
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm text-muted-foreground">
