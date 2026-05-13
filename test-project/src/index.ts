@@ -5,7 +5,7 @@ async function greetUser() {
     const openRouter = new OpenRouter();
 
     const response = openRouter.chat.send({
-        model: "google/gemini-3-pro-preview",
+        model: "openai/gpt-5-codex",
         messages: [{ role: "system", content: "You are a helpful assistant." }],
     });
     console.log(response);
@@ -13,7 +13,7 @@ async function greetUser() {
 
 async function compareResponses(prompt: string) {
     const response_gpt_llm = await ai.generateText({
-        model: "google/gemini-3-pro-preview",
+        model: "openai/gpt-5-codex",
         prompt: [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: prompt },
@@ -22,7 +22,7 @@ async function compareResponses(prompt: string) {
     console.log(response_gpt_llm);
 
     const response_gemini_llm = await ai.generateText({
-        model: "google/gemini-2.5-flash",
+        model: "alibaba/qwen3-max",
         prompt: [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: prompt },
@@ -54,13 +54,13 @@ async function generateImage(prompt: string) {
     const openai = { images: { generate: async (opts: any) => opts } };
 
     // Standard image generation
-    const image = await ai.generateImage({
-        model: "google/nano-banana",
-        prompt,
-        size: "1024x1024",
-        n: 1,
-    });
-    console.log(image);
+    // const image = await ai.generateImage({
+    //     model: "google/nano-banana",
+    //     prompt,
+    //     size: "1024x1024",
+    //     n: 1,
+    // });
+    // console.log(image);
 }
 
 async function generateHDImages(prompt: string) {

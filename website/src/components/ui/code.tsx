@@ -6,11 +6,13 @@ export function Code({
     language,
     className,
     lines,
+    lines2,
 }: {
     code: string;
     language: Language;
     className?: string;
     lines: number[];
+    lines2: number[];
 }) {
     return (
         <Highlight code={code.trim()} language={language} theme={themes.vsDark}>
@@ -28,10 +30,12 @@ export function Code({
                             <div
                                 key={i}
                                 {...getLineProps({ line })}
-                                className={lines.includes(i) ? ": bg-primary/40" : ""}
+                                className={
+                                    lines.includes(i) ? ": bg-primary/40" : lines2.includes(i) ? ": bg-accent/60" : ""
+                                }
                             >
-                                {line.map((token) => (
-                                    <span key={token.content} {...getTokenProps({ token })} />
+                                {line.map((token, j) => (
+                                    <span key={token.content + j} {...getTokenProps({ token })} />
                                 ))}
                             </div>
                         ))}

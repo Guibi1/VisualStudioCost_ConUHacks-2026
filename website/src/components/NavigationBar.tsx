@@ -1,8 +1,9 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { LoginSquare01Icon, LogoutSquare01Icon, NodeAddIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { api } from "vscost-convex/_generated/api";
-
 import SelectRepo from "@/components/SelectRepo";
 import { UserAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,6 @@ import {
     PopoverTitle,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { LoginSquare01Icon, LogoutSquare01Icon, NodeAddIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Separator } from "./ui/separator";
 
 export default function NavigationBar() {
@@ -24,7 +23,7 @@ export default function NavigationBar() {
 
     return (
         <>
-            <div className="container mx-auto flex h-16 items-center justify-between pt-2">
+            <div className="container mx-auto flex items-center justify-between p-4">
                 <Link to="/" className="flex items-center gap-2">
                     <h1 className="font-bold text-2xl">VS Cost</h1>
                 </Link>

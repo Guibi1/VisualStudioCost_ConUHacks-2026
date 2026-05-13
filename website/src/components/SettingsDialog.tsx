@@ -8,7 +8,6 @@ import {
     AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
-    AlertDialogDescription,
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
@@ -37,23 +36,20 @@ export default function SettingsDialog() {
     }, [limits, callsLimit, costLimit]);
 
     if (!limits || !repo) {
-        return <Button disabled>Open Settings Dialog</Button>;
+        return <Button disabled>Change repository limits</Button>;
     }
 
     return (
         <AlertDialog>
-            <AlertDialogTrigger render={<Button>Open Settings Dialog</Button>} />
+            <AlertDialogTrigger render={<Button>Change repository limits</Button>} />
 
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Repository Settings</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your account from our servers.
-                    </AlertDialogDescription>
+                    <AlertDialogTitle>Repository limits</AlertDialogTitle>
                 </AlertDialogHeader>
 
-                <div className="flex flex-col gap-4">
-                    <div className="mx-auto grid w-full max-w-xs gap-3">
+                <div className="flex flex-col gap-8">
+                    <div className="mx-auto grid w-full max-w-xl gap-3">
                         <div className="flex items-center justify-between gap-2">
                             <Label htmlFor={costId}>Cost threshold</Label>
                             <span className="text-muted-foreground text-sm">{costLimit.toFixed(2)}$/1M tokens</span>
@@ -63,12 +59,12 @@ export default function SettingsDialog() {
                             value={costLimit}
                             onValueChange={(v) => setCostLimit(+v)}
                             min={0}
-                            max={300}
-                            step={5}
+                            max={200}
+                            step={1}
                         />
                     </div>
 
-                    <div className="mx-auto grid w-full max-w-xs gap-3">
+                    <div className="mx-auto grid w-full max-w-xl gap-3">
                         <div className="flex items-center justify-between gap-2">
                             <Label htmlFor={callsId}>Maximum AI callsites</Label>
                             <span className="text-muted-foreground text-sm">{callsLimit}</span>
@@ -85,7 +81,14 @@ export default function SettingsDialog() {
                 </div>
 
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel
+                        onClick={() => {
+                            setCallsLimit(limits.calls);
+                            setCostLimit(limits.cost);
+                        }}
+                    >
+                        Cancel
+                    </AlertDialogCancel>
                     <AlertDialogCancel
                         render={
                             <AlertDialogAction

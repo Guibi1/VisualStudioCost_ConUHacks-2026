@@ -1,4 +1,4 @@
-import { LoaderCircle } from "@hugeicons/core-free-icons";
+import { CodeIcon, LoaderCircle } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
@@ -19,8 +19,10 @@ import { api } from "vscost-convex/_generated/api";
 import { aggregateCostsCalls } from "vscost-convex/github";
 import type { AnalysisResult } from "vscost-parser";
 import { useRepo } from "@/components/RepoProvider";
+import SettingsDialog from "@/components/SettingsDialog";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Code } from "@/components/ui/code";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     SidebarContent,
@@ -35,21 +37,6 @@ import {
 
 export const Route = createFileRoute("/dashboard/")({ component: Dashboard });
 
-// budgetValue = budget UTILISÉ, dailyBudget = budget souhaité
-const budgetValue = 105; //TODO remplacer exemple chatgpt
-const niveauWarning = 90; // % pour afficher le budget en jaune
-
-const dailyBudget = 100; //TODO remplacer exemple chatgpt
-const usedBudget = (budgetValue / 100) * dailyBudget;
-const remainingBudget = dailyBudget - usedBudget;
-const budgetStatusText =
-    remainingBudget >= 0
-        ? `${remainingBudget.toFixed(2)}$ left for today`
-        : `${Math.abs(remainingBudget).toFixed(2)}$ of overflow today`;
-
-const budgetLabel =
-    budgetValue < niveauWarning ? "Respect the budget" : budgetValue < 100 ? "Careful" : "Budget exceeded!";
-
 function Dashboard() {
     const repo = useRepo();
     const rawCommits = useQuery(
@@ -57,23 +44,24 @@ function Dashboard() {
         repo?.latest ? { owner: repo.owner, repo: repo.repo } : "skip",
     );
 
-    const commits = useMemo(
-        () =>
-            rawCommits
-                ? rawCommits.map((c) => {
-                      const analysis = JSON.parse(c.analysis) as AnalysisResult;
-                      const total = aggregateCostsCalls(analysis);
-                      return {
-                          ...c,
-                          date: new Date(c.date).toDateString(),
-                          analysis,
-                          total,
-                          limits: { cost: repo?.costLimit ?? 0, calls: repo?.callsLimit ?? 0 },
-                      };
-                  })
-                : [],
-        [rawCommits, repo],
-    );
+    const commits = useMemo(() => {
+        const asdf = rawCommits
+            ? rawCommits.map((c) => {
+                  const analysis = JSON.parse(c.analysis) as AnalysisResult;
+                  const total = aggregateCostsCalls(analysis);
+                  return {
+                      ...c,
+                      date: new Date(c.date).toDateString(),
+                      analysis,
+                      total,
+                      limits: { cost: repo?.costLimit ?? 0, calls: repo?.callsLimit ?? 0 },
+                  };
+              })
+            : [];
+
+        asdf.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return asdf;
+    }, [rawCommits, repo]);
     const fullCommits = useQuery(
         api.repositories.complete_commits_query,
         repo?.latest ? { owner: repo.owner, repo: repo.repo } : "skip",
@@ -89,22 +77,19 @@ function Dashboard() {
             analysis: commits.find((cc) => cc.commit_hash === fc.sha)?.analysis,
         };
     }, [selectedCommit, fullCommits, commits]);
-    const selectedFileFull = useMemo(
-        () => ({
-            ...selectedCommitFull?.files.find((f) => f.filename === selectedFile),
-            analysis: selectedCommitFull?.analysis?.files.find((f) => f.file_path === selectedFile),
-        }),
-        [selectedCommitFull, selectedFile],
-    );
+    const selectedFileFull = useMemo(() => {
+        const iwantFile = selectedFile ?? selectedCommitFull?.analysis?.files.at(0)?.file_path;
+        return {
+            ...selectedCommitFull?.files.find((f) => f.filename === iwantFile),
+            analysis: selectedCommitFull?.analysis?.files.find((f) => f.file_path === iwantFile),
+        };
+    }, [selectedCommitFull, selectedFile]);
 
     if (!repo || !commits || !fullCommits) return null;
-    console.log(selectedCommitFull);
+
     // Sum up the total cost from commits
-    const totalCostUsed = commits.reduce((acc, c) => acc + c.total.cost, 0);
-
-    // Daily budget from repo
-    const dailyBudget = repo?.costLimit ?? 100;
-
+    const totalCostUsed = (commits.at(-1)?.total.cost ?? 0)e;
+    const dailyBudget = repo.costLimit;
     // Compute remaining / overbudget
     const remainingBudget = dailyBudget - totalCostUsed;
     const overBudget = Math.max(totalCostUsed - dailyBudget, 0);
@@ -146,11 +131,7 @@ function Dashboard() {
                                             domain={["dataMin", "dataMax"]}
                                         />
                                         <Tooltip
-                                            formatter={(
-                                                value: number | undefined,
-                                                name: string | undefined,
-                                                props,
-                                            ): [string, string] | null => {
+                                            formatter={(value: number | undefined): [string, string] | null => {
                                                 if (value === undefined) return null;
                                                 return [`$${value.toFixed(2)}`, "Cost ($/1M tokens)"];
                                             }}
@@ -202,11 +183,7 @@ function Dashboard() {
                                             domain={["dataMin", "dataMax"]}
                                         />
                                         <Tooltip
-                                            formatter={(
-                                                value: number | undefined,
-                                                name: string | undefined,
-                                                props,
-                                            ): [string, string] | null => {
+                                            formatter={(value: number | undefined): [string, string] | null => {
                                                 if (value === undefined) return null;
                                                 return [`${value.toString()}`, "Callsites"];
                                             }}
@@ -249,7 +226,8 @@ function Dashboard() {
                     <CardHeader>
                         <CardTitle>Budget Usage</CardTitle>
                     </CardHeader>
-                    <CardContent className="flex h-64 flex-col items-center justify-center gap-4">
+
+                    <CardContent className="flex flex-col items-center justify-center gap-4">
                         <ResponsiveContainer width={200} height={200}>
                             <PieChart>
                                 <Pie
@@ -285,6 +263,10 @@ function Dashboard() {
 
                         <p className="text-center text-muted-foreground text-sm">
                             {totalCostUsed.toFixed(2)}$ of {dailyBudget}$ used · {budgetLabel}
+                        </p>
+
+                        <p className="mt-8">
+                            <SettingsDialog />
                         </p>
                     </CardContent>
                 </Card>
@@ -322,8 +304,8 @@ function Dashboard() {
                 </CardHeader>
                 <CardContent>
                     {selectedCommitFull && (
-                        <div className="flex max-h-120">
-                            <div className="w-40">
+                        <div className="flex max-h-120 gap-8">
+                            <div className="w-60">
                                 <SidebarProvider>
                                     <SidebarContent>
                                         <SidebarGroup>
@@ -333,6 +315,11 @@ function Dashboard() {
                                                     {selectedCommitFull.analysis?.files.map((file) => (
                                                         <SidebarMenuItem key={file.file_path}>
                                                             <SidebarMenuButton
+                                                                variant={
+                                                                    file.file_path === selectedFileFull.filename
+                                                                        ? "outline"
+                                                                        : "default"
+                                                                }
                                                                 onClick={() => setSelectedFile(file.file_path)}
                                                             >
                                                                 {file.file_path}
@@ -346,19 +333,37 @@ function Dashboard() {
                                 </SidebarProvider>
                             </div>
 
-                            <div className="min-h-0 flex-1 gap-4 overflow-y-scroll">
-                                {selectedFileFull.content && (
-                                    <Code
-                                        code={selectedFileFull.content}
-                                        language="tsx"
-                                        lines={
-                                            selectedFileFull.analysis?.call_sites.map(
-                                                (callSite) => callSite.position.line,
-                                            ) ?? []
-                                        }
-                                    />
-                                )}
-                            </div>
+                            {selectedFileFull.content ? (
+                                <Code
+                                    className="min-h-0 flex-1 overflow-y-scroll"
+                                    code={selectedFileFull.content}
+                                    language="tsx"
+                                    lines={
+                                        selectedFileFull.analysis?.functions.flatMap((fn) => [
+                                            ...(fn.llm_calls?.map((callSite) => callSite.position.line) ?? []),
+                                            ...(fn.audio_calls?.map((callSite) => callSite.position.line) ?? []),
+                                            ...(fn.image_calls?.map((callSite) => callSite.position.line) ?? []),
+                                        ]) ?? []
+                                    }
+                                    lines2={
+                                        selectedFileFull.analysis?.call_sites.map(
+                                            (callSite) => callSite.position.line,
+                                        ) ?? []
+                                    }
+                                />
+                            ) : (
+                                <Empty>
+                                    <EmptyHeader>
+                                        <EmptyMedia variant="icon">
+                                            <HugeiconsIcon icon={CodeIcon} />
+                                        </EmptyMedia>
+                                        <EmptyTitle>Choose a file</EmptyTitle>
+                                        <EmptyDescription>
+                                            Select a file from the sidebar to view its code.
+                                        </EmptyDescription>
+                                    </EmptyHeader>
+                                </Empty>
+                            )}
                         </div>
                     )}
                 </CardContent>
